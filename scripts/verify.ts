@@ -7,10 +7,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { CHANGED_RULES, DEFAULT_RULES, step } from '../src/engine/engine.ts';
-import { LEVELS } from '../src/engine/levels.ts';
+import { DUAL_REGIME_LEVELS, LEVELS } from '../src/engine/levels.ts';
 import { solve } from '../src/engine/solver.ts';
 import { auditForLeaks, buildObservation, pose } from '../src/engine/observation.ts';
-import { BUTTONS, type Dir, type EntityState, type Level } from '../src/engine/types.ts';
+import { BUTTONS, type Button, type Dir, type EntityState, type Level } from '../src/engine/types.ts';
 
 /** Every (cell, facing) an entity could legitimately occupy on a level. */
 function allStates(level: Level): EntityState[] {
@@ -23,7 +23,7 @@ function allStates(level: Level): EntityState[] {
   return out;
 }
 
-const BOTH_REGIMES = new Set([7, 8]);
+const BOTH_REGIMES = new Set(DUAL_REGIME_LEVELS);
 
 test('maps are well formed', () => {
   for (const lv of LEVELS) {
@@ -52,6 +52,28 @@ test('every map is solvable in every rule set it must support', () => {
   }
 });
 
+test('every room is unsolvable without the mechanics it claims to require', () => {
+  // The teeth of the level design. "Solvable" is the weak check; "solvable only
+  // the intended way" is the one that catches a room that teaches nothing.
+  for (const lv of LEVELS) {
+    for (const surface of lv.requires)
+      for (const rules of BOTH_REGIMES.has(lv.id) ? [DEFAULT_RULES, CHANGED_RULES] : [DEFAULT_RULES]) {
+        const without = solve(lv, rules, { banned: [surface] });
+        assert.equal(
+          without,
+          null,
+          `level ${lv.id} claims to require "${surface}" but is solvable without it in ` +
+            `${without?.length} actions [${without?.join('')}] — the mechanic is decoration`,
+        );
+      }
+    // and a room that requires nothing must not secretly depend on a surface
+    if (lv.requires.length === 0) {
+      const specials = lv.grid.flat().filter((c) => c === '~' || c === '/');
+      assert.equal(specials.length, 0, `level ${lv.id} has special surfaces but declares no requirement`);
+    }
+  }
+});
+
 test('stepping is deterministic', () => {
   for (const lv of LEVELS)
     for (const s of allStates(lv))
@@ -63,15 +85,30 @@ test('stepping is deterministic', () => {
         }
 });
 
-test('rotating in place never triggers a surface effect', () => {
+test('every button is a distinct absolute direction', () => {
+  // The turn-relative scheme had a redundancy: "turn left then walk backward"
+  // and "turn right then walk forward" produced identical displacement, so an
+  // agent could succeed while holding a wrong-but-consistent model of turning.
+  // Four absolute directions have no such pair — every button is separable by
+  // a single observation.
+  const lv = LEVELS[2];
+  const open = { x: 3, y: 3, dir: 0 as Dir };
+  const seen = new Map<string, Button>();
+  for (const b of BUTTONS) {
+    const r = step(lv, open, b, DEFAULT_RULES);
+    const k = `${r.state.x},${r.state.y}`;
+    assert.equal(seen.has(k), false, `${b} is indistinguishable from ${seen.get(k)}`);
+    seen.set(k, b);
+  }
+});
+
+test('the marker follows the direction of travel, and a blocked press leaves it alone', () => {
   for (const lv of LEVELS)
     for (const s of allStates(lv))
-      for (const b of ['A', 'C'] as const)
+      for (const b of BUTTONS)
         for (const rules of [DEFAULT_RULES, CHANGED_RULES]) {
           const r = step(lv, s, b, rules);
-          assert.equal(r.state.x, s.x);
-          assert.equal(r.state.y, s.y);
-          assert.equal(r.autoMoved, 0);
+          if (r.blocked) assert.equal(r.state.dir, s.dir, 'a blocked press must change nothing');
         }
 });
 
@@ -146,6 +183,20 @@ test('no reachable observation leaks a forbidden token', () => {
         const leaks = auditForLeaks(obs);
         assert.deepEqual(leaks, [], `level ${lv.id} leaked ${leaks.join()}`);
       }
+});
+
+test('the intervention rooms make the change expensive enough to notice', () => {
+  // A room where the carry saves one or two presses lets an agent limp along on
+  // a stale rule without ever paying for it. The gap has to be legible.
+  for (const id of DUAL_REGIME_LEVELS) {
+    const lv = LEVELS[id - 1];
+    const before = solve(lv, DEFAULT_RULES)!.length;
+    const after = solve(lv, CHANGED_RULES)!.length;
+    assert.ok(
+      after - before >= 5,
+      `level ${id}: the rule change only costs ${after - before} actions (${before} -> ${after})`,
+    );
+  }
 });
 
 test('reference path lengths', () => {

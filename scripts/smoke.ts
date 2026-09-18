@@ -45,6 +45,7 @@ interface State {
   memoryRejected: string | null;
   lastInvalid: string | null;
   lastPrediction: string | null;
+  previousRoom: any;
   seededMemory: boolean;
 }
 
@@ -72,6 +73,7 @@ function observation(s: State) {
     lastAction: s.lastAction,
     actionsUsed: s.levelStep,
     actionsRemaining: s.budget - s.levelStep,
+    previousRoom: s.previousRoom ?? undefined,
   });
 }
 
@@ -98,6 +100,7 @@ function init() {
     memoryRejected: null,
     lastInvalid: null,
     lastPrediction: null,
+    previousRoom: null,
     seededMemory: Boolean(seedFile),
   };
   fs.mkdirSync(RUNS, { recursive: true });
@@ -164,6 +167,8 @@ function apply(file: string) {
   }
   s.lastInvalid = null;
 
+  // capture what the model actually saw BEFORE the update lands
+  const memInPrompt = renderMemory(s.memory);
   const applied = applyMemory(s.memory, v.reply.memory);
   s.memoryRejected = applied.rejected;
   s.memory = applied.memory;
@@ -179,6 +184,7 @@ function apply(file: string) {
   s.entity = r.state;
   s.globalStep++;
   s.levelStep++;
+  s.previousRoom = null;
   s.lastPrediction = v.reply.prediction;
   s.lastAction = {
     button: v.reply.button,
@@ -194,13 +200,15 @@ function apply(file: string) {
     global_step: s.globalStep,
     level_step: s.levelStep,
     observation_before: obsBefore,
-    memory_before: renderMemory(applied.memory),
+    memory_in_prompt: memInPrompt,
+    memory_proposed: renderMemory(v.reply.memory),
+    memory_accepted: renderMemory(applied.memory),
+    memory_update_rejected: applied.rejected,
     button: v.reply.button,
     hypothesis: v.reply.hypothesis,
     prediction: v.reply.prediction,
     contradiction: v.reply.contradiction,
     observation_after: observation(s),
-    memory_after: renderMemory(s.memory),
     level_complete: r.complete,
     researcher: {
       true_rules: s.rules,
@@ -232,11 +240,12 @@ function apply(file: string) {
 
   if (r.complete) {
     if (s.levelIndex + 1 < LEVELS.length) {
+      // the room that just ENDED, captured before the index moves on
+      s.previousRoom = { room_index: s.levelIndex + 1, outcome: 'completed', final_action: s.lastAction };
       s.levelIndex++;
       s.levelStep = 0;
       s.entity = { ...LEVELS[s.levelIndex].start };
       s.lastAction = null;
-      s.lastPrediction = null;
       console.log(`  -> now in room ${s.levelIndex + 1}`);
     } else {
       console.log('  -> campaign finished');

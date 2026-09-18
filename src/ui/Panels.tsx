@@ -108,7 +108,7 @@ const TRUTH: Array<[string, string, string]> = [
   [PAL.floorA, 'tile_0 / tile_1', 'Two plain floors. Different look, identical behaviour.'],
   [PAL.solid, 'solid_tile', 'Blocks movement.'],
   [PAL.stripedInk, 'striped_tile', 'Carries the entity along its travel direction until the first non-striped cell or an obstacle.'],
-  [PAL.diagonalInk, 'diagonal_tile', 'Rotates the entity 90° clockwise on entry.'],
+  [PAL.diagonalInk, 'diagonal_tile', 'Deflects travel 90° clockwise and carries it one more cell.'],
   [PAL.ringA, 'concentric_tile', 'Ends the room when the entity finishes an action on it.'],
 ];
 
@@ -139,10 +139,16 @@ export function ResearcherPanel({
               <tr>
                 <td colSpan={2} style={{ color: 'var(--gold)' }}>Buttons</td>
               </tr>
-              <tr><td>A</td><td>turn 90° left</td></tr>
-              <tr><td>B</td><td>step one cell along the facing</td></tr>
-              <tr><td>C</td><td>turn 90° right</td></tr>
-              <tr><td>D</td><td>step one cell against the facing, keeping the facing</td></tr>
+              <tr><td>A</td><td>move one cell up</td></tr>
+              <tr><td>B</td><td>move one cell right</td></tr>
+              <tr><td>C</td><td>move one cell down</td></tr>
+              <tr><td>D</td><td>move one cell left</td></tr>
+              <tr>
+                <td colSpan={2} style={{ color: 'var(--dim)' }}>
+                  Absolute directions; the labels are arbitrary. The entity's marker is
+                  cosmetic and only shows the way it last travelled.
+                </td>
+              </tr>
               <tr>
                 <td colSpan={2} style={{ color: 'var(--gold)', paddingTop: 8 }}>Surfaces</td>
               </tr>

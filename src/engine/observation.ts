@@ -34,6 +34,27 @@ export interface LastAction {
   level_complete: boolean;
 }
 
+/**
+ * How the room the agent was just in came to an end.
+ *
+ * Without this the agent never learns what its winning press did. The old code
+ * advanced the room and cleared `last_action` in the same breath, so the press
+ * that finished a room produced a next-observation of a DIFFERENT room with
+ * nothing attached — the agent was asked to work out what ends a room while
+ * being denied the single observation that shows it. Worse, running out of
+ * actions moved it on too, so success and failure were indistinguishable from
+ * the inside.
+ *
+ * This reports what happened, not why it happened: the final press, where the
+ * entity ended up, and whether the room closed or the actions ran out. All of
+ * it is on the screen a human player would be looking at.
+ */
+export interface PreviousRoom {
+  room_index: number;
+  outcome: 'completed' | 'ran_out_of_actions';
+  final_action: LastAction;
+}
+
 export interface Observation {
   /** How many rooms have been entered so far. Visible on screen anyway. */
   room_index: number;
@@ -41,6 +62,8 @@ export interface Observation {
   entities: Array<{ id: string; x: number; y: number; marker: string }>;
   buttons: Button[];
   last_action: LastAction | null;
+  /** Present on the first observation of a room, describing the one before it. */
+  previous_room?: PreviousRoom;
   budget: { actions_used: number; actions_remaining: number };
   /** Present only in the announced-change condition. Never names the rule. */
   notice?: string;
@@ -57,6 +80,7 @@ export function buildObservation(args: {
   lastAction: LastAction | null;
   actionsUsed: number;
   actionsRemaining: number;
+  previousRoom?: PreviousRoom;
   notice?: string;
 }): Observation {
   const { level, state } = args;
@@ -77,6 +101,7 @@ export function buildObservation(args: {
       actions_remaining: args.actionsRemaining,
     },
   };
+  if (args.previousRoom) obs.previous_room = args.previousRoom;
   if (args.notice) obs.notice = args.notice;
   return obs;
 }

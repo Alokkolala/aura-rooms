@@ -47,7 +47,7 @@ shown as a provider error — a failed call never becomes a fabricated agent rep
 npm run check
 ```
 
-27 checks: 10 on the engine and level set, 17 on the agent loop and the
+32 checks: 13 on the engine and level set, 19 on the agent loop and the
 researcher/agent boundary.
 
 ---
@@ -72,8 +72,15 @@ mid-run would make one log describe two experiments. Restart to change them.
 
 **Told:** the grid as appearance-only codes (`tile_0`, `tile_1`, `solid_tile`,
 `striped_tile`, `diagonal_tile`, `concentric_tile`), entity position and a
-facing marker, the four button labels, the result of its last press, its
-remaining budget, its memory, and its own previous prediction echoed back.
+marker showing the way it last travelled, the four button labels, the result of
+its last press, how the previous room ended, its remaining budget, its memory,
+and its own previous prediction echoed back.
+
+`previous_room` matters more than it looks. It carries the press that closed the
+last room, the cell it landed on, and whether the room `completed` or the agent
+`ran_out_of_actions`. Without it the agent is asked to infer what ends a room
+while being denied the one observation that shows it — and success and failure
+both just silently become a new room.
 
 **Never told:** what any surface does, what ends a room, which rule changed or
 when, the level's name, the true rule table, or the reference solution. Every
@@ -83,6 +90,18 @@ reachable observation of every level is scanned against 23 forbidden tokens in
 In the announced-change condition it gets one sentence — *"One of the rules of
 this world has changed"* — and nothing more. That condition exists to separate
 the difficulty of *noticing* from the difficulty of *re-learning*.
+
+## Controls
+
+Four buttons, four absolute directions, no turning. The labels carry no hint;
+working out which is which is the agent's first job and takes about four
+presses. That is deliberate — an earlier turn-relative scheme (turn left /
+forward / turn right / back) ate most of a room's budget just to pin down, and
+had a redundancy that let an agent succeed while holding a wrong-but-consistent
+model of turning. The budget belongs on the surface rules, because a surface
+rule is what the experiment changes.
+
+The entity's marker is cosmetic and only shows the way it last moved.
 
 ## Memory strategies
 
@@ -107,6 +126,15 @@ engine states. Rooms 7 and 8 are verified solvable under **both** rule sets and
 are geometrically identical across all three conditions, so only the rule
 differs.
 
+More importantly, every room declares the surfaces it **requires**, and
+`npm run verify` bans each one and re-solves: a room claiming to teach the strip
+has to be *unsolvable* without it. "Solvable" is the weak check; "solvable only
+the intended way" is the one with teeth. Two rooms shipped as pure decoration
+before this existed, and neither was catchable by playing — an author only ever
+plays the route they already had in mind. The intervention rooms additionally
+have to make the rule change cost at least 5 actions, so an agent running on a
+stale rule actually pays for it.
+
 Room 7 is the intervention: under the original rule one press crosses the room
 and ends it; under the changed rule the same press advances one cell. That makes
 the first press onto the strip the discriminating observation, and the log marks
@@ -116,10 +144,16 @@ every press that would look different under the other rule set.
 
 Written to `runs/<run_id>.jsonl` as the run happens, so killing the app cannot
 lose an experiment. Each step records the observation and memory before, the
-model's reply, the button, prediction, resulting observation and memory, plus a
-clearly separated `researcher` block with the true rules, the full path, and
-whether the press was discriminating. Replay re-executes each recorded press
-through the engine and flags any disagreement rather than hiding it.
+model's reply, the button, prediction, resulting observation, plus a clearly
+separated `researcher` block with the true rules, the full path, and whether the
+press was discriminating. Replay re-executes each recorded press through the
+engine and flags any disagreement rather than hiding it.
+
+Memory is logged as three distinct fields — `memory_in_prompt`,
+`memory_proposed`, `memory_accepted` — because they are three different things
+and collapsing them once made every step claim the agent had seen the memory it
+had just written. The exact request is reconstructible too: `prompt_user` per
+step, and the full system prompt once in `run_start`.
 
 Runs where the rule was changed by hand are tagged `manual_intervention` so they
 can never pool with automated results.
@@ -137,11 +171,21 @@ you can check the logs rather than take them on trust.
 **No automated LLM run has ever been executed in this repository.** No API key
 was available while it was built. The pilot sweep has never run.
 
-What *has* been run: all 27 checks, manual play, the random agent, and a set of
-hand-stepped probes using a sealed subagent (Haiku 4.5, one cold spawn per
-action, `tool_uses: 0` verified on every spawn). Those probes are prompt smoke
-tests, n=1, with author-seeded memory in one case. They are evidence about the
-instrument, not about the world.
+What *has* been run: all 32 checks, manual play, the random agent, and
+hand-stepped runs using a sealed subagent (Haiku 4.5, one cold spawn per action,
+`tool_uses: 0` verified on every spawn).
+
+One of those is a genuine continuous cold start — empty memory, every press
+chosen by the model, nothing seeded and nothing auto-advanced. It solved room 1
+in 8 actions against a reference of 4, spending the extra four identifying the
+button set, and built a correct general rule with its own dependency links
+along the way (`runs/live-cold-*.jsonl`). Note that step 6 of that log is
+contaminated by a transcription error of mine; `RESEARCH_LOG.md` E10 says which
+and why.
+
+**No flat-memory run exists, so there is no strategy comparison yet**, and no
+run has reached the intervention from self-accumulated experience. The only
+adaptation evidence is still an author-seeded probe.
 
 `RESEARCH_LOG.md` is the lab notebook: what was run, what was found, what broke,
 and three fairness bugs the probes exposed in the instrument itself.
@@ -153,10 +197,13 @@ and three fairness bugs the probes exposed in the instrument itself.
   study: it may make selective revision and "just retest what broke" the same
   algorithm. Ambiguous attribution or stochastic outcomes would address it and
   neither is implemented.
-- `A` then `D` and `C` then `B` produce identical displacement, so an agent can
-  succeed while holding a self-consistent but wrong model of the turn buttons.
-  Success rate alone cannot certify that a rule was learned; the per-press
-  prediction is what discriminates.
+- Success rate alone cannot certify that a rule was learned — an agent can reach
+  a target for the wrong reason. The per-press prediction is what discriminates,
+  which is why it is a required field rather than UI garnish.
+- Nothing validates the agent's own `supported_by` / `depends_on` links. It can
+  rewrite a claim while keeping the evidence it cited for the old one, and the
+  structure will still look rigorous. Treat those fields as what the agent
+  asserts, not as verified provenance.
 - One rule family, one change, one direction. No A→B→A return, which is the
   cheapest way to tell real revision from fast forgetting and should be the next
   thing added.

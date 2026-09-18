@@ -1,143 +1,165 @@
 import { parseGrid } from './engine.ts';
-import type { Dir, Level } from './types.ts';
+import type { Cell, Dir, Level } from './types.ts';
 
 // Glyph legend (engine + researcher view only — never shown to the agent):
 //   . ,  two plain floors that look different and behave identically
 //   #    solid block
 //   ~    striped surface   (carries the entity along its travel direction)
-//   /    diagonal surface  (rotates the entity 90 deg clockwise on entry)
+//   /    diagonal surface  (deflects travel 90 deg clockwise, one more cell)
 //   O    concentric surface (ends the level when the entity finishes on it)
 //
-// Out of bounds is impassable, so no wall border is needed and no grid space
-// is wasted on one.
+// Out of bounds is impassable, so no wall border is needed and none is drawn.
+//
+// EVERY room declares `requires`: the surfaces without which it must be
+// UNSOLVABLE. `npm run verify` bans each one and re-solves, so a room that
+// claims to teach the strip has to actually be impassable without it. This is
+// not ceremony — two rooms shipped as decoration before this check existed, and
+// neither was catchable by playing, because an author only ever plays the route
+// they already intended.
 
 interface Spec {
   name: string;
   rows: string[];
   start: [number, number, Dir];
+  requires: Cell[];
 }
 
 const SPECS: Spec[] = [
   {
-    // 1 — first discovery. Two presses of one button is enough, so the agent
-    // can stumble into the completion signal and learn that it exists.
-    name: 'first contact',
+    // 1 — that rooms can end at all. A corridor with the target at the far end,
+    // so almost any run of presses arrives there. The only thing to learn here
+    // is that the concentric surface finishes a room; turning comes next.
+    name: 'the end of a room',
     rows: [
-      '.,.,.',
-      ',.O.,',
-      '.,.,.',
-      ',.,.,',
-      '.,.,.',
+      '##O##',
+      '##.##',
+      '#...#',
+      '#...#',
+      '#...#',
     ],
-    start: [2, 3, 0],
+    start: [2, 4, 0],
+    requires: [],
   },
   {
-    // 2 — direction. Target is off the starting axis, so movement alone
-    // cannot reach it; some turn button has to be found.
-    name: 'off axis',
+    // 2 — that there is more than one direction. An L-shaped corridor: the
+    // button that worked in room 1 runs into the corner and stops, so a second
+    // button has to be found and told apart from the first.
+    name: 'the corner',
     rows: [
-      '.,.,.',
-      ',.,.,',
-      '.,.,O',
-      ',.,.,',
-      '.,.,.',
+      '#####',
+      '#...O',
+      '#.###',
+      '#.###',
+      '#.###',
     ],
-    start: [2, 3, 0],
+    start: [1, 4, 0],
+    requires: [],
   },
   {
-    // 3 — obstacles. The straight line is walled off; the agent must route.
-    name: 'detour',
+    // 3 — obstacles. The target sits in a pocket whose only mouth faces away
+    // from the approach, so the straight line fails and the room has to be
+    // read rather than charged at.
+    name: 'the pocket',
     rows: [
       '.,.,.,.',
+      ',.###.,',
+      '.,#O#,.',
       ',.,.,.,',
-      '.,.,O,.',
-      ',###.#,',
-      '.,.,.,.',
-      ',.,.,.,',
       '.,.,.,.',
     ],
-    start: [3, 4, 0],
+    start: [3, 0, 2],
+    requires: [],
   },
   {
-    // 4 — striped surface, introduced safely. Entering it northbound does
-    // nothing (wedged against the blocks), entering it eastbound carries the
-    // entity two cells. Nothing is lost either way, so the contrast is free
-    // to discover.
+    // 4 — the striped surface, and it is the only way in. The target sits at
+    // the far end of a strip with solid on every other side, so the carry is
+    // met head-on rather than stumbled past.
     name: 'the strip',
     rows: [
-      '#######',
-      '.~~~~O,',
-      ',.,.,.,',
       '.,.,.,.',
+      '.,.,.,.',
+      '#####.#',
+      'O~~~~.#',
     ],
-    start: [2, 3, 0],
+    start: [5, 0, 2],
+    requires: ['~'],
   },
   {
-    // 5 — diagonal surface. A corridor forces contact with it, and afterwards
-    // the button that used to go "up the corridor" goes sideways instead.
+    // 5 — the diagonal surface, and being deflected by it is the only way in.
+    // The target corridor has solid on every side; the single opening is the
+    // cell the deflector throws you into, so the room cannot be finished
+    // without noticing that travel gets turned.
+    //
+    // An earlier draft put the deflector at the end of a corridor where it
+    // fired into a wall and did nothing. The room still passed "solvable" and
+    // still passed "requires the diagonal" — it was merely required as a place
+    // to stand. Being required is not the same as being demonstrated.
     name: 'reorientation',
     rows: [
-      '.,.O.,.',
-      ',.,.,.,',
-      '###.###',
-      ',.,/.,,',
-      '###.###',
-      ',.,.,.,',
+      '#######',
+      '#/..O##',
+      '#.#####',
+      '#.#####',
       '.,.,.,.',
     ],
-    start: [3, 6, 0],
+    start: [5, 4, 0],
+    requires: ['/'],
   },
   {
-    // 6 — combination. The solid mass leaves exactly one way north, and it is
-    // the strip; riding it northbound is the only way to reach the top row,
-    // where it deposits the entity onto the diagonal. An earlier draft of this
-    // map had an open column on the right and the solver went straight up it,
-    // touching neither special surface — see RESEARCH_LOG E2.
+    // 6 — both, chained, in a single press. Ride the strip east; it sets the
+    // entity down on the deflector, which turns the travel south and drops it
+    // into the mouth of the target pocket. Banning either surface seals the
+    // pocket completely.
     name: 'assembly',
     rows: [
-      '/.,.,.O,.',
-      '~########',
-      '~########',
-      '~########',
-      '~########',
-      '.,.,.,.,.',
-      ',.,.,.,.,',
+      '.,.,.,.##',
+      ',.,.,.,##',
+      '.~~~~~~/#',
+      '#######.#',
+      '#######O#',
     ],
-    start: [4, 6, 0],
+    start: [0, 0, 2],
+    requires: ['~', '/'],
   },
   {
-    // 7 — the intervention level. Identical geometry in every condition and
-    // solvable under both rule sets: with the carry, one press crosses the
-    // room and completes; without it, the same press advances one cell and
-    // the room is crossed on foot. That makes the first press onto the strip
-    // the discriminating observation.
+    // 7 — the intervention room. The target is walled in behind the strip, so
+    // the strip must be entered under either rule set; only the price changes.
+    // With the carry, one press crosses the room and ends it. Without it, the
+    // same press advances one cell and the strip is walked. That makes the
+    // first press onto it the discriminating observation.
     name: 'the same strip',
     rows: [
-      '.,.,.,.,.',
-      ',.,.,.,.,',
-      '.~~~~~~O,',
-      ',.,.,.,.,',
-      '.,.,.,.,.',
-      ',.,.,.,.,',
-      '.,.,.,.,.',
+      '.,.,.,.##',
+      ',.,.,.,##',
+      '.~~~~~~O#',
+      ',.,.,.,##',
     ],
-    start: [0, 6, 0],
+    start: [0, 3, 0],
+    requires: ['~'],
   },
   {
-    // 8 — transfer. New geometry that needs the corrected strip rule together
-    // with the diagonal rule, which never changed. Solvable under both rule
-    // sets; only the cost differs.
+    // 8 — transfer, at a different orientation, and the widest price gap in the
+    // campaign. The strip runs the full width westward and sets the entity down
+    // on a diagonal that turns it north into the target corridor, so the
+    // corrected strip rule has to be combined with the diagonal rule that never
+    // changed.
+    //
+    // Solvable under both rule sets; only the cost differs, and it differs a
+    // lot — one press with the carry against eight without. An earlier draft
+    // used a three-cell strip, where the carry saved so little that an agent
+    // still holding the stale rule would barely be punished for it. A transfer
+    // room has to make the difference legible.
     name: 'transfer',
     rows: [
-      '.,.,.,.,.',
-      ',.,.,.,O,',
-      '.,.,.,#,.',
-      ',~~~~~/,.',
+      'O########',
+      '.########',
+      '/~~~~~~~.',
+      '########.',
       '.,.,.,.,.',
       ',.,.,.,.,',
-      '.,.,.,.,.',
     ],
-    start: [0, 6, 0],
+    start: [0, 5, 0],
+    requires: ['~', '/'],
   },
 ];
 
@@ -148,7 +170,11 @@ export const LEVELS: Level[] = SPECS.map((s, i) => ({
   w: s.rows[0].length,
   h: s.rows.length,
   start: { x: s.start[0], y: s.start[1], dir: s.start[2] },
+  requires: s.requires,
 }));
 
 /** Level index (1-based) at which a scheduled rule change takes effect. */
 export const INTERVENTION_BEFORE_LEVEL = 7;
+
+/** Rooms that must remain solvable under both rule sets. */
+export const DUAL_REGIME_LEVELS = [7, 8];

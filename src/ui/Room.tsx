@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { TILE, PAL, sprites } from './sprites.ts';
 import type { EntityState, Level } from '../engine/types.ts';
 
@@ -32,7 +32,17 @@ function segMs(a: EntityState, b: EntityState, isSlide: boolean) {
 
 export function Room({ level, path, animToken, highlight, celebrate, onDone }: RoomProps) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const done = useRef(false);
+  const [avail, setAvail] = useState(620);
+
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setAvail(e.contentRect.width || 620));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const cv = ref.current;
@@ -116,16 +126,22 @@ export function Room({ level, path, animToken, highlight, celebrate, onDone }: R
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animToken, level, highlight, celebrate]);
+  }, [animToken, level, highlight, celebrate, avail]);
 
-  const scale = Math.max(2, Math.min(7, Math.floor(620 / (level.w * TILE))));
+  // Pick the largest INTEGER scale that fits the space we actually have.
+  // A fractional scale would resample the pixel grid and undo the whole point
+  // of drawing it a pixel at a time, so the room gets smaller in whole steps
+  // rather than blurring.
+  const scale = Math.max(2, Math.min(7, Math.floor(avail / (level.w * TILE))));
   return (
-    <canvas
-      ref={ref}
-      className="room-canvas"
-      width={level.w * TILE * scale}
-      height={level.h * TILE * scale}
-      style={{ width: level.w * TILE * scale, height: level.h * TILE * scale }}
-    />
+    <div ref={box} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+      <canvas
+        ref={ref}
+        className="room-canvas"
+        width={level.w * TILE * scale}
+        height={level.h * TILE * scale}
+        style={{ width: level.w * TILE * scale, height: level.h * TILE * scale }}
+      />
+    </div>
   );
 }

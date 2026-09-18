@@ -347,3 +347,126 @@ after the fact if left in.
 4. **Ambiguous attribution.** Two surfaces whose composition is observationally
    identical. This is the direct answer to R1 and is cheaper than adding noise.
 5. **Then, and only then, a pilot with enough seeds to separate two arms.**
+
+## 2026-09-19 — E9. External review: three real bugs, and a curriculum rebuild
+
+An external review read the code, the log and all three committed JSONL files at
+`6b32603`, ran the 27 checks independently, and found several things the checks
+did not. Every finding was correct. Recording them as found, not as softened.
+
+**1. The agent never saw the result of its winning press.** `advanceLevel()`
+loaded the next room and cleared `lastAction` in the same breath, so the press
+that ended a room produced a next-observation belonging to a DIFFERENT room with
+nothing attached. The agent was being asked to infer what ends a room while
+being denied the one observation that shows it. Worse, exhausting the budget
+also advanced the room, so from the inside success and failure were
+indistinguishable.
+
+This is the most serious defect found so far, because it attacks the premise of
+the whole design — "the agent can connect its action, the cell and the success".
+Fixed with a `previous_room` block on the first observation of each room,
+carrying the closing press, the cell it landed on, and an explicit outcome of
+`completed` or `ran_out_of_actions`. It reports what happened, not why, so it
+gives nothing away.
+
+**2. `memory_before` and `memory_after` were always identical.** The memory
+update was applied before `commit()` ran, and `commit()` then read it back off
+state as both fields. Every one of the 18 recorded steps claimed the agent had
+seen the memory it had just written. The log could not answer the one question
+it exists to answer — what did the agent know when it chose? Replaced with three
+distinct fields: `memory_in_prompt`, `memory_proposed`, `memory_accepted`, plus
+`memory_update_rejected`. The ambiguous `memory_before` name is gone entirely so
+nothing can silently read the wrong one again.
+
+**3. Room 8 was solvable optimally without either mechanic it claimed to
+teach.** Banning both special surfaces still solved it in exactly the optimal
+post-change length. Same defect I had already found and fixed in room 6 — and I
+still shipped it in room 8, because I fixed room 6 by hand and never turned the
+fix into a check.
+
+That is the real lesson, and it is now a test. `solve()` takes a `banned` option,
+every room declares `requires`, and `npm run verify` bans each declared surface
+and asserts the room becomes UNSOLVABLE. A room that claims to teach the strip
+must be impassable without it. There is also a new check that the intervention
+rooms' cost gap is at least 5 actions, because a room where the carry saves one
+or two presses lets an agent limp along on a stale rule without ever paying for
+it.
+
+**4. One of my own tests was enshrining bug 1.** `'a new room resets the pose but
+not the knowledge'` asserted `lastAction === null` after a room change and called
+that correct. 27 green checks certified a broken design. Rewritten to assert the
+opposite, plus a test that running out of actions is reported as such.
+
+### The control scheme changed
+
+Buttons are now four absolute directions instead of turn-left / forward /
+turn-right / back. Two reasons. The turn-relative scheme had a redundancy — "turn
+left then walk backward" and "turn right then walk forward" give identical
+displacement — so an agent could succeed while holding a wrong-but-consistent
+model of turning. And pinning the scheme down consumed most of a room's budget,
+which is budget not spent on the surface rules. A surface rule is what the
+experiment changes, so that is where the budget belongs.
+
+The diagonal surface had to be redefined: with no heading to rotate, it now
+deflects travel 90 degrees clockwise and carries on one cell. Room 5 was rebuilt
+around it, because in the first redraft the deflector fired into a wall and did
+nothing — the room passed "solvable" AND passed "requires the diagonal", since it
+was required merely as a place to stand. Being required is not the same as being
+demonstrated, and no test I have catches that difference; it took reading the
+solver's chosen path.
+
+All eight rooms were rebuilt. Reference lengths under the original rules:
+1:4, 2:6, 3:8, 4:4, 5:9, 6:4, 7:2, 8:13. Rooms 7 and 8 after the change: 8 and
+20 — gaps of 6 and 7.
+
+## 2026-09-19 — E10. First genuine continuous run
+
+`[measured]` Cold start, empty memory, structured store, room 1, sealed Haiku
+subject, **every press chosen by the model**, nothing auto-advanced, nothing
+seeded. `tool_uses: 0` on all eight spawns. Log: `runs/live-cold-*.jsonl`.
+
+It solved room 1 in 8 actions against a reference of 4. The extra four were not
+waste — they were spent identifying the button set:
+
+| step | press | why | outcome |
+|---|---|---|---|
+| 1 | A | "test whether A moves the entity" | up one cell |
+| 2 | B | deliberate probe of an untested button | right one cell — prediction of "left" falsified, contradiction reported |
+| 3 | C | test the generalisation | down one cell, as predicted |
+| 4 | D | "completing the cardinal direction pattern" | left one cell |
+| 5–8 | A×4 | execute the plan | room completed |
+
+What the memory did, unprompted:
+- **Self-corrected without being challenged.** Step 1 recorded the target at
+  (0,0); step 2 silently rewrote it to (2,0), the correct cell.
+- **Induced a general rule from two instances and labelled its own
+  uncertainty** — `cardinal_pattern`: "A=up, B=right, C=down(?), D=left(?)",
+  status `hypothesis`, `depends_on` the two confirmed button entries. The
+  question marks were its own.
+- **Promoted it on evidence.** After D it became `confirmed` with
+  `supported_by: [1,2,3,5]`, then accumulated 6, 7, 8.
+- **Built a derived plan on top of it** — `path_to_goal`, `depends_on:
+  ["cardinal_pattern"]`. That is exactly the root-and-dependent structure the
+  intervention is designed to break, and it arose on its own.
+
+`[measured]` The complete button model was learned in four presses, which is
+what the absolute-direction change was meant to buy and it delivered.
+
+**My own error, recorded rather than quietly fixed.** At step 6 I hand-typed the
+`last_action` block into the prompt instead of pasting the harness's output, and
+wrote `before.marker` as "up" when it was "left". The agent duly reported a
+contradiction about its own state tracking. **That step-6 contradiction is an
+artefact of my transcription, not agent behaviour, and step 6 of that log should
+be treated as contaminated.** It is also a concrete instance of exactly what the
+review warned about — a hand-driven protocol with no saved prompt cannot be
+audited. The app's runner now logs `prompt_user` per step and the full system
+prompt once in `run_start`, so a real run is reconstructible without trusting me.
+
+### Still missing, unchanged by any of this
+
+- **No flat-memory run exists, so no strategy comparison exists.** Every model
+  trajectory to date is structured-memory.
+- No run has yet reached the intervention from self-accumulated experience. The
+  only adaptation evidence is still the author-seeded probe in E5/E7.
+- The E7 echo effect is still n=1 per arm and still confounds two changes
+  (showing the prediction, and asking for a comparison).

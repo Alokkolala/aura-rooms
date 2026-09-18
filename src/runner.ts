@@ -1,8 +1,8 @@
 import { CHANGED_RULES, DEFAULT_RULES, step } from './engine/engine.ts';
 import { INTERVENTION_BEFORE_LEVEL, LEVELS } from './engine/levels.ts';
-import { buildObservation, pose, type LastAction, type Observation } from './engine/observation.ts';
+import { buildObservation, pose, type LastAction, type Observation, type PreviousRoom } from './engine/observation.ts';
 import type { Button, EntityState, Rules } from './engine/types.ts';
-import { applyMemory, emptyMemory, renderMemory, type Memory, type StrategyName } from './agent/memory.ts';
+import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } from './agent/memory.ts';
 import { systemPrompt, userPrompt } from './agent/prompt.ts';
 import { extractJson, validate } from './agent/schema.ts';
 
@@ -50,6 +50,7 @@ export interface RunState {
   path: EntityState[];
   animToken: number;
   lastAction: LastAction | null;
+  previousRoom: PreviousRoom | null;
   lastReply: { hypothesis: string; prediction: string; contradiction: string | null } | null;
   changedEntryIds: string[];
   feed: FeedItem[];
@@ -82,6 +83,7 @@ export class Run {
   private memoryRejected: string | null = null;
   private lastInvalid: string | null = null;
   private lastPrediction: string | null = null;
+  private lastPromptSent = '';
   private buffer: unknown[] = [];
   private emit: () => void;
 
@@ -101,6 +103,7 @@ export class Run {
       path: [{ ...lv.start }],
       animToken: 0,
       lastAction: null,
+      previousRoom: null,
       lastReply: null,
       changedEntryIds: [],
       feed: [],
@@ -121,6 +124,11 @@ export class Run {
       at: new Date().toISOString(),
       config,
       resumed_from: resume ? { level_index: resume.levelIndex, from_run: resume.fromRunId } : null,
+      // Logged in full and once. Together with each step's prompt_user this
+      // makes the exact request the model answered reconstructible from the
+      // log alone, without rerunning anything.
+      system_prompt: systemPrompt(config.strategy),
+      memory_budget_chars: MEMORY_BUDGET_CHARS,
     });
     // A run that resumes at the intervention level must have the change applied
     // on entry, exactly as a continuous run would when it advanced into it.
@@ -183,6 +191,7 @@ export class Run {
       lastAction: s.lastAction,
       actionsUsed: s.levelStep,
       actionsRemaining: s.config.actionBudgetPerLevel - s.levelStep,
+      previousRoom: s.previousRoom ?? undefined,
       notice,
     });
   }
@@ -246,13 +255,25 @@ export class Run {
       this.log({ type: 'run_end', at: new Date().toISOString(), summary: this.summary() });
       return;
     }
+    // Carry the closing press forward as an explicit outcome. The agent has to
+    // be able to connect its action to the room ending; clearing this was the
+    // bug that made that impossible.
+    s.previousRoom = s.lastAction
+      ? {
+          room_index: s.levelIndex + 1,
+          outcome: solved ? 'completed' : 'ran_out_of_actions',
+          final_action: s.lastAction,
+        }
+      : null;
+
     s.levelIndex++;
     s.levelStep = 0;
     s.entity = { ...this.level.start };
     s.path = [{ ...this.level.start }];
     s.animToken++;
-    s.lastAction = null; // new room: nothing has been tried in it yet
-    this.lastPrediction = null;
+    s.lastAction = null; // new room: nothing has been tried in IT yet
+    // lastPrediction is deliberately kept: it belongs to the closing press,
+    // which the agent is about to be shown in previous_room.
     this.maybeIntervene();
   }
 
@@ -260,11 +281,20 @@ export class Run {
   private commit(
     button: Button,
     meta: { hypothesis: string; prediction: string; contradiction: string | null },
+    /**
+     * The three distinct memory states of one turn. They must be passed in,
+     * not read back off `state`: the update has already been applied by the
+     * time this runs, so reading `state.memory` here recorded the NEW memory as
+     * `memory_before` and made every logged step claim the agent saw the memory
+     * it had just written. That silently destroyed the log's ability to answer
+     * the one question it exists for — what did the agent know when it chose?
+     */
+    mem?: { inPrompt: string; proposed: string; accepted: string; rejected: string | null },
   ) {
     const s = this.state;
     const before = { ...s.entity };
     const obsBefore = this.observation();
-    const memBefore = renderMemory(s.memory);
+    const memInPrompt = mem?.inPrompt ?? renderMemory(s.memory);
     const discriminating = this.isDiscriminating(before, button);
 
     const r = step(this.level, before, button, s.rules);
@@ -273,6 +303,7 @@ export class Run {
     s.animToken++;
     s.globalStep++;
     s.levelStep++;
+    s.previousRoom = null; // it has now acted in this room; the report is spent
     s.lastAction = {
       button,
       before: pose(before),
@@ -299,13 +330,18 @@ export class Run {
       global_step: s.globalStep,
       level_step: s.levelStep,
       observation_before: obsBefore,
-      memory_before: memBefore,
+      // exactly what was in the request the model answered
+      prompt_user: mem ? this.lastPromptSent : null,
+      // the system half is constant per run and logged once in run_start
+      memory_in_prompt: memInPrompt,
+      memory_proposed: mem?.proposed ?? memInPrompt,
+      memory_accepted: mem?.accepted ?? memInPrompt,
+      memory_update_rejected: mem?.rejected ?? null,
       button,
       hypothesis: meta.hypothesis,
       prediction: meta.prediction,
       contradiction: meta.contradiction,
       observation_after: this.observation(),
-      memory_after: renderMemory(s.memory),
       level_complete: r.complete,
       // Researcher-only section. None of this is ever built into an observation.
       researcher: {
@@ -357,6 +393,9 @@ export class Run {
       lastPrediction: this.lastPrediction,
     });
 
+    this.lastPromptSent = user;
+    const memInPrompt = renderMemory(s.memory);
+
     const res = await fetch('/api/agent', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -395,11 +434,20 @@ export class Run {
     else if (s.changedEntryIds.length)
       this.push({ kind: 'memory', text: `memory updated: ${s.changedEntryIds.join(', ')}` });
 
-    this.commit(v.reply.button, {
-      hypothesis: v.reply.hypothesis,
-      prediction: v.reply.prediction,
-      contradiction: v.reply.contradiction,
-    });
+    this.commit(
+      v.reply.button,
+      {
+        hypothesis: v.reply.hypothesis,
+        prediction: v.reply.prediction,
+        contradiction: v.reply.contradiction,
+      },
+      {
+        inPrompt: memInPrompt,
+        proposed: renderMemory(v.reply.memory),
+        accepted: renderMemory(applied.memory),
+        rejected: applied.rejected,
+      },
+    );
   }
 
   /** A malformed reply costs a model call and performs no world action. */

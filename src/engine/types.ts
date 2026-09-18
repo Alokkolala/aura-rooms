@@ -1,9 +1,22 @@
 // Core engine types. Kept "erasable-only" (no enums/namespaces) so Node can run
 // these files directly via native type-stripping, with no build step.
 
-/** 0=north(up) 1=east(right) 2=south(down) 3=west(left) — screen-relative. */
+/** 0=up 1=right 2=down 3=left — screen-relative. */
 export type Dir = 0 | 1 | 2 | 3;
 export type Button = 'A' | 'B' | 'C' | 'D';
+
+/**
+ * Each button moves the entity one cell in a fixed absolute direction. There is
+ * no turning: the entity has no heading to steer, and the marker it carries is
+ * cosmetic, showing the way it last travelled.
+ *
+ * The labels are arbitrary and carry no hint — discovering which is which is
+ * the agent's first job, and it takes about four presses. That is the point:
+ * an earlier turn-relative scheme (turn left / forward / turn right / back)
+ * cost most of a room's budget just to pin down, and the budget is better spent
+ * on the surface rules, since a surface rule is what the experiment changes.
+ */
+export const BUTTON_DIR: Record<Button, Dir> = { A: 0, B: 1, C: 2, D: 3 };
 
 /**
  * Map cell glyphs.
@@ -22,6 +35,11 @@ export interface Level {
   w: number;
   h: number;
   start: { x: number; y: number; dir: Dir };
+  /**
+   * Surfaces this room claims to require. Banning any one of them must make the
+   * room unsolvable — checked in `npm run verify`, so the claim cannot rot.
+   */
+  requires: Cell[];
 }
 
 export interface EntityState {

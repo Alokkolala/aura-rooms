@@ -1,19 +1,41 @@
 import { step } from './engine.ts';
-import { BUTTONS, type Button, type Level, type Rules } from './types.ts';
+import { BUTTONS, type Button, type Cell, type Level, type Rules } from './types.ts';
+
+export interface SolveOptions {
+  /**
+   * Surfaces the solver is forbidden to stand on, as if they were solid.
+   *
+   * This is how "this room requires its mechanic" becomes a checkable claim
+   * rather than a comment. Ban a surface and re-solve: if the room is still
+   * solvable, the mechanic was decoration and the room teaches nothing. Level 6
+   * shipped with exactly that defect once, and level 8 shipped with it twice —
+   * both were found this way and not by playing, because playing only ever
+   * walks the route the author already had in mind.
+   */
+  banned?: Cell[];
+}
 
 /**
  * Exact shortest button sequence, by breadth-first search over engine states.
  * The state space is (w * h * 4), so this is cheap and needs no heuristic.
  *
- * Used for two things only: proving every map is solvable under every rule set
- * it must support, and reporting a reference path length next to what the
- * agent actually spent. It is NOT an opponent — it is handed the true rules,
- * which is exactly the information the agent has to earn.
+ * Handed the true rules, which is precisely the information the agent has to
+ * earn — so this is a reference length, never an opponent.
  */
-export function solve(level: Level, rules: Rules): Button[] | null {
-  const key = (x: number, y: number, d: number) => (y * level.w + x) * 4 + d;
-  const s0 = level.start;
-  if (level.grid[s0.y][s0.x] === 'O') return [];
+export function solve(level: Level, rules: Rules, options: SolveOptions = {}): Button[] | null {
+  const banned = new Set<Cell>(options.banned ?? []);
+
+  // A banned surface is unenterable. Rather than thread a predicate through the
+  // engine, hand the search a level whose banned cells are solid: identical
+  // semantics, and the engine stays a single code path with no test-only mode.
+  const lv: Level = banned.size
+    ? { ...level, grid: level.grid.map((row) => row.map((c) => (banned.has(c) ? '#' : c))) }
+    : level;
+
+  const key = (x: number, y: number, d: number) => (y * lv.w + x) * 4 + d;
+  const s0 = lv.start;
+  if (lv.grid[s0.y][s0.x] === '#') return null; // start itself was banned
+  if (lv.grid[s0.y][s0.x] === 'O') return [];
 
   const prev = new Map<number, { from: number; button: Button }>();
   const seen = new Set<number>([key(s0.x, s0.y, s0.dir)]);
@@ -23,7 +45,7 @@ export function solve(level: Level, rules: Rules): Button[] | null {
     const next: typeof frontier = [];
     for (const s of frontier) {
       for (const b of BUTTONS) {
-        const r = step(level, s, b, rules);
+        const r = step(lv, s, b, rules);
         const k = key(r.state.x, r.state.y, r.state.dir);
         if (seen.has(k)) continue;
         seen.add(k);

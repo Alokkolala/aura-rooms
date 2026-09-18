@@ -1,4 +1,5 @@
 import {
+  BUTTON_DIR,
   DELTA,
   MAX_EFFECT_ITERATIONS,
   type Button,
@@ -21,6 +22,10 @@ function turn(dir: Dir, amount: number): Dir {
   return (((dir + amount) % 4) + 4) % 4 as Dir;
 }
 
+function dirOf(d: readonly [number, number]): Dir {
+  return DELTA.findIndex((e) => e[0] === d[0] && e[1] === d[1]) as Dir;
+}
+
 /**
  * Resolve automatic surface effects after the entity ENTERED a new cell.
  *
@@ -35,18 +40,20 @@ function turn(dir: Dir, amount: number): Dir {
 function resolveEffects(
   level: Level,
   start: EntityState,
-  d: readonly [number, number],
+  d0: readonly [number, number],
   rules: Rules,
   path: EntityState[],
 ): { state: EntityState; autoMoved: number; guardTripped: boolean } {
-  let { x, y, dir } = start;
+  let { x, y } = start;
+  let dir = start.dir;
+  let d = d0;
   let autoMoved = 0;
   let guardTripped = false;
   const seen = new Set<string>();
 
   let i = 0;
   for (; i < MAX_EFFECT_ITERATIONS; i++) {
-    const key = `${x},${y},${dir}`;
+    const key = `${x},${y},${d[0]},${d[1]}`;
     if (seen.has(key)) {
       guardTripped = true;
       break;
@@ -56,8 +63,8 @@ function resolveEffects(
     const cell = level.grid[y][x];
 
     if (cell === '~' && rules.slipperyEnabled) {
-      // Carry along d until standing on the first non-striped cell, or until
-      // the next cell is not passable.
+      // Carried along the current direction of travel until standing on the
+      // first non-striped cell, or until the next cell is not passable.
       let moved = 0;
       while (level.grid[y][x] === '~') {
         const nx = x + d[0];
@@ -74,9 +81,21 @@ function resolveEffects(
     }
 
     if (cell === '/') {
-      dir = turn(dir, 1);
+      // Deflector: travel turns 90 degrees clockwise and carries on one cell.
+      // With no heading to rotate, this is what "reorientation" has to mean —
+      // and it composes, since a deflected entity can be deflected again or
+      // handed straight onto a strip running the new way.
+      const nd = DELTA[turn(dirOf(d), 1)];
+      const nx = x + nd[0];
+      const ny = y + nd[1];
+      if (!passable(level, nx, ny)) break; // deflected into a wall: it rests here
+      d = nd;
+      dir = dirOf(nd);
+      x = nx;
+      y = ny;
+      autoMoved++;
       path.push({ x, y, dir });
-      break; // a rotation is not an entry, so nothing further can trigger
+      continue;
     }
 
     break; // inert surface
@@ -89,10 +108,14 @@ function resolveEffects(
 /**
  * Execute exactly one button press.
  *
- * Fixed order: apply action -> test collision -> apply surface effects on
+ * Fixed order: apply the action -> test collision -> apply surface effects on
  * entry -> run automatic movement to completion -> test the success condition
- * against the FINAL state. One press is one action even if a slide crossed
- * several cells, and a blocked attempt still consumes the action.
+ * against the FINAL state. One press is one action however far the entity is
+ * subsequently carried, and a blocked attempt still consumes the action.
+ *
+ * Surface effects fire on ENTRY only, i.e. only when the press actually changed
+ * the entity's cell. A press that is blocked therefore triggers nothing, with
+ * no special case needed.
  */
 export function step(
   level: Level,
@@ -106,29 +129,23 @@ export function step(
   let autoMoved = 0;
   let cycleGuardTripped = false;
 
-  if (button === 'A' || button === 'C') {
-    dir = turn(dir, button === 'A' ? -1 : 1);
+  const d = DELTA[BUTTON_DIR[button]];
+  const nx = x + d[0];
+  const ny = y + d[1];
+
+  if (passable(level, nx, ny)) {
+    x = nx;
+    y = ny;
+    dir = BUTTON_DIR[button]; // the marker just shows the way it last travelled
     path.push({ x, y, dir });
+    const r = resolveEffects(level, { x, y, dir }, d, rules, path);
+    x = r.state.x;
+    y = r.state.y;
+    dir = r.state.dir;
+    autoMoved = r.autoMoved;
+    cycleGuardTripped = r.guardTripped;
   } else {
-    // B walks along the facing; D walks against it without changing facing.
-    const f = DELTA[dir];
-    const d: readonly [number, number] =
-      button === 'B' ? f : [-f[0], -f[1]];
-    const nx = x + d[0];
-    const ny = y + d[1];
-    if (passable(level, nx, ny)) {
-      x = nx;
-      y = ny;
-      path.push({ x, y, dir });
-      const r = resolveEffects(level, { x, y, dir }, d, rules, path);
-      x = r.state.x;
-      y = r.state.y;
-      dir = r.state.dir;
-      autoMoved = r.autoMoved;
-      cycleGuardTripped = r.guardTripped;
-    } else {
-      blocked = true;
-    }
+    blocked = true;
   }
 
   return {

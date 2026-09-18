@@ -167,8 +167,7 @@ test('the budget binds on neither arm at a realistic knowledge load', () => {
 test('memory persists across rooms, and a fresh run inherits nothing', () => {
   const run = new Run(cfg(), noop);
   (run as any).state.memory = { kind: 'structured', entries: [{ id: 'k', claim: 'kept', conditions: '', status: 'confirmed', supported_by: [], contradicted_by: [], depends_on: [] }] };
-  run.pressManual('B');
-  run.pressManual('B'); // room 1 solves in BB
+  for (let i = 0; i < 4; i++) run.pressManual('A'); // room 1 solves in AAAA
   assert.equal(run.state.levelIndex, 1, 'should have advanced a room');
   assert.match(renderMemory(run.state.memory), /kept/, 'memory must survive the room change');
 
@@ -177,12 +176,58 @@ test('memory persists across rooms, and a fresh run inherits nothing', () => {
   assert.equal(fresh.state.levelIndex, 0);
 });
 
-test('a new room resets the pose but not the knowledge', () => {
+test('the press that finishes a room is reported in the next observation', () => {
+  // This test previously asserted that `lastAction` was null after a room
+  // change and called that correct. It was codifying the bug: the agent was
+  // being asked to work out what ends a room while being denied the one
+  // observation that shows it. What the new room must reset is the POSE, not
+  // the report of how the last room ended.
   const run = new Run(cfg(), noop);
-  run.pressManual('B');
-  run.pressManual('B');
-  assert.deepEqual(run.state.entity, LEVELS[1].start);
-  assert.equal(run.state.lastAction, null, 'nothing has been tried in the new room yet');
+  for (let i = 0; i < 4; i++) run.pressManual('A'); // room 1 solves in AAAA
+  assert.equal(run.state.levelIndex, 1, 'should have advanced');
+
+  const obs = run.observation();
+  assert.deepEqual(run.state.entity, LEVELS[1].start, 'pose resets');
+  assert.equal(obs.last_action, null, 'nothing has been tried in the NEW room yet');
+  assert.ok(obs.previous_room, 'the closing press must be reported');
+  assert.equal(obs.previous_room!.room_index, 1);
+  assert.equal(obs.previous_room!.outcome, 'completed');
+  assert.equal(obs.previous_room!.final_action.level_complete, true);
+
+  // and it is spent once the agent has acted in the new room
+  run.pressManual('C');
+  assert.equal(run.observation().previous_room, undefined);
+});
+
+test('running out of actions is reported as such, not silently', () => {
+  // Success and failure both advance the room. If neither is reported the two
+  // are indistinguishable from inside, which makes the win condition
+  // undiscoverable in exactly the runs where it matters.
+  const run = new Run(cfg({ actionBudgetPerLevel: 2 }), noop);
+  run.pressManual('C');
+  run.pressManual('C');
+  const obs = run.observation();
+  assert.ok(obs.previous_room);
+  assert.equal(obs.previous_room!.outcome, 'ran_out_of_actions');
+});
+
+test('the log distinguishes the memory seen, proposed and accepted', () => {
+  // These three were once one field, so every step claimed the agent had seen
+  // the memory it had just written.
+  const run = new Run(cfg(), noop);
+  const records: any[] = [];
+  (run as any).log = (r: any) => records.push(r);
+  (run as any).commit('A', { hypothesis: 'h', prediction: 'p', contradiction: null }, {
+    inPrompt: 'ORIGINAL',
+    proposed: 'UPDATED',
+    accepted: 'UPDATED',
+    rejected: null,
+  });
+  const step = records.find((r) => r.type === 'step');
+  assert.equal(step.memory_in_prompt, 'ORIGINAL');
+  assert.equal(step.memory_proposed, 'UPDATED');
+  assert.equal(step.memory_accepted, 'UPDATED');
+  assert.equal('memory_before' in step, false, 'the ambiguous field must be gone');
 });
 
 test('the change notice appears only in the announced condition, only once', () => {
