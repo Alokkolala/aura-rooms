@@ -5,6 +5,7 @@ import { ENGINE_VERSION, type Button, type EntityState, type Rules } from './eng
 import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } from './agent/memory.ts';
 import { systemPrompt, userPrompt } from './agent/prompt.ts';
 import { extractJson, validate } from './agent/schema.ts';
+import { computeMetrics, type Metrics, type StepRecord } from './metrics.ts';
 
 export type Condition = 'stable' | 'hidden' | 'notified';
 export type Driver = 'llm' | 'random' | 'manual';
@@ -39,6 +40,13 @@ export interface FeedItem {
   step: number;
 }
 
+export interface Meta {
+  hypothesis: string;
+  prediction: string;
+  predictedPosition: { x: number; y: number } | null;
+  contradiction: string | null;
+}
+
 export interface RunState {
   config: RunConfig;
   levelIndex: number;
@@ -51,9 +59,11 @@ export interface RunState {
   animToken: number;
   lastAction: LastAction | null;
   previousRoom: PreviousRoom | null;
-  lastReply: { hypothesis: string; prediction: string; contradiction: string | null } | null;
+  lastReply: (Meta & { verdict: boolean | null }) | null;
   changedEntryIds: string[];
   feed: FeedItem[];
+  /** every step, in order, in the same shape the log uses */
+  records: StepRecord[];
   running: boolean;
   inFlight: boolean;
   finished: boolean;
@@ -107,6 +117,7 @@ export class Run {
       lastReply: null,
       changedEntryIds: [],
       feed: [],
+      records: [],
       running: false,
       inFlight: false,
       finished: false,
@@ -281,7 +292,7 @@ export class Run {
   /** Execute one validated button press against the engine. */
   private commit(
     button: Button,
-    meta: { hypothesis: string; prediction: string; contradiction: string | null },
+    meta: Meta,
     /**
      * The three distinct memory states of one turn. They must be passed in,
      * not read back off `state`: the update has already been applied by the
@@ -311,7 +322,6 @@ export class Run {
       after: pose(r.state),
       level_complete: r.complete,
     };
-    s.lastReply = meta;
     this.lastPrediction = meta.prediction;
 
     if (discriminating && s.interventionAtStep !== null && s.firstDiscriminatingStep === null)
@@ -324,8 +334,13 @@ export class Run {
     this.push({ kind: 'action', text: `${button} — ${moveText}`, detail: meta.hypothesis });
     if (meta.contradiction) this.push({ kind: 'contradiction', text: meta.contradiction });
 
-    this.log({
-      type: 'step',
+    const verdict = meta.predictedPosition
+      ? meta.predictedPosition.x === r.state.x && meta.predictedPosition.y === r.state.y
+      : null;
+    s.lastReply = { ...meta, verdict };
+
+    const record = {
+      type: 'step' as const,
       run_id: s.config.runId,
       level: s.levelIndex + 1,
       global_step: s.globalStep,
@@ -341,6 +356,7 @@ export class Run {
       button,
       hypothesis: meta.hypothesis,
       prediction: meta.prediction,
+      predicted_position: meta.predictedPosition,
       contradiction: meta.contradiction,
       observation_after: this.observation(),
       level_complete: r.complete,
@@ -356,7 +372,9 @@ export class Run {
         intervention_applied: s.interventionAtStep !== null,
         manual_intervention: Boolean(s.config.manualIntervention),
       },
-    });
+    };
+    s.records.push(record as unknown as StepRecord);
+    this.log(record);
 
     if (r.complete) {
       this.push({
@@ -378,6 +396,7 @@ export class Run {
     this.commit(button, {
       hypothesis: '(pressed by hand)',
       prediction: 'unknown',
+      predictedPosition: null,
       contradiction: null,
     });
   }
@@ -440,6 +459,7 @@ export class Run {
       {
         hypothesis: v.reply.hypothesis,
         prediction: v.reply.prediction,
+        predictedPosition: v.reply.predicted_position,
         contradiction: v.reply.contradiction,
       },
       {
@@ -478,6 +498,7 @@ export class Run {
       this.commit(b, {
         hypothesis: '(random agent, integration check only)',
         prediction: 'unknown',
+        predictedPosition: null,
         contradiction: null,
       });
       return true;
@@ -520,9 +541,14 @@ export class Run {
     this.emit();
   }
 
+  metrics(): Metrics {
+    return computeMetrics(this.state.records);
+  }
+
   summary() {
     const s = this.state;
     return {
+      metrics: this.metrics(),
       run_id: s.config.runId,
       config: s.config,
       levels_completed: s.levelsCompleted,

@@ -470,3 +470,70 @@ prompt once in `run_start`, so a real run is reconstructible without trusting me
   only adaptation evidence is still the author-seeded probe in E5/E7.
 - The E7 echo effect is still n=1 per arm and still confounds two changes
   (showing the prediction, and asking for a comparison).
+
+## 2026-09-19 — E11. Making the experiment checkable, and the behaviour legible
+
+Two problems, one cause: nothing in a run could be *scored*, and nothing in the
+UI showed what the agent was doing.
+
+**The scoring problem.** The agent predicted in free text — "it will slide to the
+far side and the room will end". That reads well and cannot be checked. The only
+way to score it would be to have something read the prose and judge it, which
+manufactures a measurement out of writing quality and would rate a well-written
+wrong answer above a terse right one. So the reply now carries an optional
+`predicted_position: {x,y}`. A coordinate compares with `===`. `null` means
+"declined to commit" and is never counted as wrong, so honesty is not punished.
+
+That one field turns everything downstream into arithmetic. **Recovery is now
+defined in advance**: three committed correct predictions in a row, after the
+change. Three rather than one, because a single correct prediction after a change
+is as likely to be luck as understanding — and "first success" and "recovered"
+are reported as separate events, since collapsing them is the easiest way to
+overstate a result. Declining breaks the streak without counting against the
+agent.
+
+`src/metrics.ts` computes, from recorded positions and statuses only: prediction
+accuracy, first telling press, first correct prediction after the change, first
+room solved after it, the recovery step, and **missed chances** — telling presses
+made while still predicting wrongly, the closest honest proxy for "kept acting on
+the dead rule". Beliefs demoted after the change are listed but **not labelled
+right or wrong**; whether doubting a given belief was correct is left to a human,
+because deciding it requires reading the claim.
+
+**The legibility problem.** The raw log is unreadable at speed. Memory is a wall
+of JSON that changes slightly every turn, so the one moment that matters — a
+belief being demoted — looks identical to every other turn. Three views now:
+
+- **Belief timeline** — one row per belief, one cell per step, coloured by
+  status, derived beliefs indented under what they depend on. A row that runs
+  green and turns amber at one column *is* the revision moment, and which
+  neighbouring rows stayed green is the whole question.
+- **Prediction ledger** — step, room, button, predicted cell, actual cell,
+  hit / miss / abstain, with the rule change drawn as a break in the list.
+- **Measured** — the metrics above, with recovery's definition stated on screen.
+
+They work on live runs and on loaded recordings, so the committed `live-cold` log
+can be inspected directly. Doing that paid off immediately: the timeline shows
+`cardinal_pattern` sitting violet as a hypothesis and turning green the step after
+the fourth button was tested, with `path_to_goal` indented beneath it. That was in
+the log all along and I had only found it by reading JSON by hand.
+
+`[derived]` That same log shows `accuracy: — (0/0 committed, 8 declined)`, because
+it predates `predicted_position`. Correct, and worth keeping visible: it says the
+run cannot answer the question rather than implying a score.
+
+**Experiments are now declared, not clicked.** `src/experiment.ts` holds named
+protocols, each carrying the question it asks and what would count as an answer,
+both fixed before the run. Choosing arms from dropdowns meant the design lived in
+whatever happened to be selected, and a log could not later distinguish intent
+from accident. The three protocols are a pipeline smoke test, the flat-versus-
+structured comparison, and hidden-versus-announced. Each states its own cost in
+model calls before anything is spent.
+
+41 checks now, the metrics included: that declining is not scored as wrong, that
+a lucky hit is not a recovery, that an abstention breaks a streak, that pre-change
+steps cannot produce a recovery, and that flat memory yields no belief tracks
+instead of crashing.
+
+**Still the same gap.** None of this has been run against a model. It makes the
+next run measurable; it does not substitute for it.

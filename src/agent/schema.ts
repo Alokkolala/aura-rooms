@@ -5,6 +5,21 @@ export interface AgentReply {
   button: Button;
   hypothesis: string;
   prediction: string;
+  /**
+   * Where the agent expects the entity to END UP, if it is willing to commit.
+   *
+   * The free-text `prediction` is for the human reading along; it cannot be
+   * scored, and scoring it by having a model judge the prose would invent a
+   * measurement out of nice writing. A coordinate can be compared to what
+   * actually happened with `===`, which turns "was the agent right" from an
+   * opinion into arithmetic — and that is what every downstream metric, the
+   * recovery criterion included, is built on.
+   *
+   * null is a legitimate answer and is recorded as "declined to commit", never
+   * as a wrong answer. An agent that says it does not know should not be
+   * punished for honesty.
+   */
+  predicted_position: { x: number; y: number } | null;
   memory: Memory;
   contradiction: string | null;
 }
@@ -79,12 +94,21 @@ export function validate(raw: unknown, strategy: StrategyName): Validation {
     memory = { kind: 'structured', entries };
   }
 
+  let predicted: { x: number; y: number } | null = null;
+  const pp = o.predicted_position as Record<string, unknown> | null | undefined;
+  if (pp && typeof pp === 'object') {
+    if (Number.isInteger(pp.x) && Number.isInteger(pp.y))
+      predicted = { x: pp.x as number, y: pp.y as number };
+    else return { ok: false, error: 'predicted_position must be {x,y} integers or null' };
+  }
+
   return {
     ok: true,
     reply: {
       button: button as Button,
       hypothesis,
       prediction,
+      predicted_position: predicted,
       memory,
       contradiction: str(o.contradiction, 400) || null,
     },

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Room } from './ui/Room.tsx';
 import { AgentPanel, ButtonPad, EventFeed, ResearcherPanel } from './ui/Panels.tsx';
 import { Replay } from './ui/Replay.tsx';
+import { BeliefTimeline, MetricsPanel, PredictionLedger } from './ui/Behaviour.tsx';
+import { PROTOCOLS, estimateCalls, type Arm, type Protocol } from './experiment.ts';
 import { LEVELS } from './engine/levels.ts';
 import { solve } from './engine/solver.ts';
 import { CHANGED_RULES, DEFAULT_RULES } from './engine/engine.ts';
@@ -16,7 +18,6 @@ interface ServerStatus {
 }
 
 const STRATEGIES: StrategyName[] = ['flat', 'structured'];
-const CONDITIONS: Condition[] = ['stable', 'hidden', 'notified'];
 
 function newRunId(prefix: string) {
   return `${prefix}-${new Date().toISOString().replace(/[:.]/g, '').slice(0, 15)}-${Math.random()
@@ -41,7 +42,9 @@ export default function App() {
   const [budget, setBudget] = useState(30);
   const [seed, setSeed] = useState(1);
   const [showResearcher, setShowResearcher] = useState(true);
-  const [tab, setTab] = useState<'live' | 'replay'>('live');
+  const [tab, setTab] = useState<'live' | 'behaviour' | 'replay'>('live');
+  const [pick, setPick] = useState<number | null>(null);
+  const [protocol, setProtocol] = useState<Protocol>(PROTOCOLS[0]);
 
   const [, force] = useState(0);
   const emit = useCallback(() => force((n) => n + 1), []);
@@ -114,82 +117,119 @@ export default function App() {
   }
 
   /**
-   * Pilot sweep. Both strategies across all three conditions, sharing one
-   * prefix per strategy: rooms 1-6 are played once, snapshotted, and the three
-   * continuations branch from identical history. That is both cheaper and a
-   * cleaner comparison than replaying the prefix three times, because the
-   * conditions then differ only in the intervention.
+   * Run a declared protocol.
    *
-   * Never fires on its own. The button says how many model calls it could cost
-   * before anything is spent.
+   * Never fires on its own, and the button states the worst-case cost in model
+   * calls before a single one is spent. With a shared prefix, rooms 1-6 are
+   * played once per strategy and snapshotted, so the conditions branch from
+   * identical history and differ only in the intervention.
    */
-  async function runExperiment(repeats: number) {
+  async function runExperiment(p: Protocol) {
     setExperiment({ running: true, log: [], rows: [] });
     const rows: Array<Record<string, unknown>> = [];
-    const say = (line: string) =>
-      setExperiment((e) => ({ ...e, log: [...e.log, line] }));
+    const say = (line: string) => setExperiment((e) => ({ ...e, log: [...e.log, line] }));
 
-    for (let rep = 0; rep < repeats; rep++) {
-      for (const strat of STRATEGIES) {
-        const prefixCfg: RunConfig = {
-          runId: newRunId(`exp-${strat}-prefix-r${rep}`),
-          strategy: strat,
-          condition: 'stable',
-          driver: 'llm',
-          actionBudgetPerLevel: budget,
-          seed: seed + rep,
-        };
-        const prefix = new Run(prefixCfg, emit);
-        runRef.current = prefix;
-        say(`[${strat}] rep ${rep + 1}: playing rooms 1-6`);
-        await drive(prefix, () => prefix.state.levelIndex >= 6);
-        const snap = prefix.snapshot();
-        say(`[${strat}] rep ${rep + 1}: prefix done, ${snap.levelsCompleted}/6 solved`);
+    const record = (
+      rep: number,
+      arm: Arm,
+      branch: Run,
+      base: { rooms: number; steps: number },
+    ) => {
+      const m = branch.metrics();
+      rows.push({
+        protocol: p.id,
+        rep: rep + 1,
+        strategy: arm.strategy,
+        condition: arm.condition,
+        rooms_solved: m.roomsSolved - base.rooms,
+        actions: m.totalActions - base.steps,
+        accuracy: m.accuracy === null ? '' : m.accuracy.toFixed(2),
+        first_telling: m.firstTellingStep ?? '',
+        first_correct_after: m.firstCorrectAfterChange ?? '',
+        first_success_after: m.firstSuccessAfterChange ?? '',
+        recovered_at: m.recoveredAtStep ?? '',
+        missed_chances: m.tellingPressesBeforeRecovery,
+        demoted_after_change: m.demotedAfterChange.join(' '),
+        invalid_replies: branch.state.invalidReplies,
+        model_calls: branch.state.usage.calls,
+        tokens: branch.state.usage.input + branch.state.usage.output,
+      });
+      setExperiment((e) => ({ ...e, rows: [...rows] }));
+    };
 
-        for (const cond of CONDITIONS) {
-          const cfg: RunConfig = {
-            runId: newRunId(`exp-${strat}-${cond}-r${rep}`),
-            strategy: strat,
-            condition: cond,
-            driver: 'llm',
-            actionBudgetPerLevel: budget,
-            seed: seed + rep,
-          };
-          const branch = new Run(cfg, emit, snap);
-          runRef.current = branch;
-          say(`[${strat}/${cond}] rep ${rep + 1}: rooms 7-8`);
-          await drive(branch, () => false);
-          const sum = branch.summary();
-          rows.push({
-            rep: rep + 1,
-            strategy: strat,
-            condition: cond,
-            prefix_solved_of_6: snap.levelsCompleted,
-            rooms_7_8_solved: sum.levels_completed - snap.levelsCompleted,
-            actions_after_branch: sum.total_actions - snap.globalStep,
-            first_telling_action: sum.first_discriminating_step,
-            first_success_after_change: sum.first_success_after_change,
-            invalid_replies: sum.invalid_replies,
-            model_calls: sum.usage.calls,
-            tokens: sum.usage.input + sum.usage.output,
-          });
-          setExperiment((e) => ({ ...e, rows: [...rows] }));
+    for (let rep = 0; rep < p.repeats; rep++) {
+      if (p.sharedPrefix) {
+        for (const strat of [...new Set(p.arms.map((a) => a.strategy))]) {
+          const prefix = new Run(
+            {
+              runId: newRunId(`${p.id}-${strat}-prefix-r${rep}`),
+              strategy: strat,
+              condition: 'stable',
+              driver: 'llm',
+              actionBudgetPerLevel: p.budgetPerRoom,
+              seed: seed + rep,
+            },
+            emit,
+          );
+          runRef.current = prefix;
+          say(`[${strat}] rep ${rep + 1}: rooms 1-6`);
+          await drive(prefix, () => prefix.state.levelIndex >= 6);
+          const snap = prefix.snapshot();
+          const base = { rooms: prefix.metrics().roomsSolved, steps: prefix.state.globalStep };
+          say(`[${strat}] prefix done, ${snap.levelsCompleted}/6 solved`);
+
+          for (const arm of p.arms.filter((a) => a.strategy === strat)) {
+            const branch = new Run(
+              {
+                runId: newRunId(`${p.id}-${strat}-${arm.condition}-r${rep}`),
+                strategy: strat,
+                condition: arm.condition,
+                driver: 'llm',
+                actionBudgetPerLevel: p.budgetPerRoom,
+                seed: seed + rep,
+              },
+              emit,
+              snap,
+            );
+            runRef.current = branch;
+            say(`[${strat}/${arm.condition}] rooms 7-8`);
+            await drive(branch, () => false);
+            record(rep, arm, branch, base);
+          }
+        }
+      } else {
+        for (const arm of p.arms) {
+          const r = new Run(
+            {
+              runId: newRunId(`${p.id}-${arm.strategy}-${arm.condition}-r${rep}`),
+              strategy: arm.strategy,
+              condition: arm.condition,
+              driver: 'llm',
+              actionBudgetPerLevel: p.budgetPerRoom,
+              seed: seed + rep,
+            },
+            emit,
+          );
+          runRef.current = r;
+          say(`[${arm.strategy}/${arm.condition}] rep ${rep + 1}: full campaign`);
+          await drive(r, () => false);
+          record(rep, arm, r, { rooms: 0, steps: 0 });
         }
       }
     }
-    say('sweep finished');
+    say('protocol finished');
     setExperiment((e) => ({ ...e, running: false }));
     const header = Object.keys(rows[0] ?? { note: 'no rows' });
     download(
-      `aura-pilot-${Date.now()}.csv`,
-      [header.join(','), ...rows.map((r) => header.map((h) => r[h] ?? '').join(','))].join('\n'),
+      `aura-${p.id}-${Date.now()}.csv`,
+      [header.join(','), ...rows.map((r) => header.map((h) => r[h] ?? '').join(','))].join(
+        String.fromCharCode(10),
+      ),
       'text/csv',
     );
   }
 
   if (!s) return <div style={{ padding: 40 }}>starting…</div>;
-
-  const estCalls = 2 * (6 * budget) + 2 * 3 * (2 * budget);
 
   return (
     <div className="app">
@@ -199,10 +239,20 @@ export default function App() {
           hidden-rule-change testbed · room {s.levelIndex + 1}/8 · {s.globalStep} actions
         </span>
         <span className="spacer" />
-        <button className="btn" onClick={() => setTab(tab === 'live' ? 'replay' : 'live')}>
-          {tab === 'live' ? 'Open replay' : 'Back to live'}
-        </button>
       </header>
+
+      <nav className="tabs">
+        {([
+          ['live', 'Play'],
+          ['behaviour', 'Behaviour'],
+          ['replay', 'Replay'],
+        ] as const).map(([k, label]) => (
+          <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+            {label}
+            {k === 'behaviour' && s.records.length ? ` (${s.records.length})` : ''}
+          </button>
+        ))}
+      </nav>
 
       {status && !status.hasKey && (
         <div className="banner info">
@@ -222,6 +272,52 @@ export default function App() {
         <div style={{ gridColumn: '1 / -1' }}>
           <Replay />
         </div>
+      ) : tab === 'behaviour' ? (
+        <>
+          <div>
+            <div className="panel">
+              <div className="stage">
+                <div className="roombar">
+                  <span>
+                    {pick !== null ? `STEP ${s.records[pick]?.global_step}` : 'LATEST'}
+                    <span className="muted">
+                      {' '}
+                      · room {pick !== null ? s.records[pick]?.level : s.levelIndex + 1}
+                    </span>
+                  </span>
+                  <span className="muted">
+                    {pick !== null ? s.records[pick]?.hypothesis : 'pick a step to inspect it'}
+                  </span>
+                </div>
+                <Room
+                  level={pick !== null ? LEVELS[s.records[pick].level - 1] : level}
+                  path={
+                    pick !== null
+                      ? (s.records[pick] as any).researcher.path
+                      : s.path
+                  }
+                  animToken={pick ?? s.animToken}
+                  highlight={
+                    pick !== null
+                      ? (s.records[pick] as any).researcher.entity_after
+                      : { x: s.entity.x, y: s.entity.y }
+                  }
+                  celebrate={pick !== null ? s.records[pick].level_complete : false}
+                />
+                {pick !== null && (
+                  <button className="btn" onClick={() => setPick(null)}>
+                    ← back to live
+                  </button>
+                )}
+              </div>
+            </div>
+            <BeliefTimeline steps={s.records} onPick={setPick} selected={pick ?? undefined} />
+          </div>
+          <div>
+            <MetricsPanel steps={s.records} />
+            <PredictionLedger steps={s.records} onPick={setPick} selected={pick ?? undefined} />
+          </div>
+        </>
       ) : (
         <>
           <div>
@@ -363,32 +459,53 @@ export default function App() {
             </div>
 
             <div className="panel">
-              <h2>Pilot sweep</h2>
-              <p style={{ fontSize: 12, color: 'var(--dim)', marginTop: 0 }}>
-                Both strategies across all three conditions. Rooms 1–6 are played once per
-                strategy and snapshotted, so the three continuations branch from identical
-                history. Nothing runs until you press the button.
-              </p>
-              <div className="ctl">
+              <h2>Experiment</h2>
+              <label className="field" style={{ marginBottom: 10 }}>
+                Protocol
+                <select
+                  value={protocol.id}
+                  onChange={(e) =>
+                    setProtocol(PROTOCOLS.find((p) => p.id === e.target.value) ?? PROTOCOLS[0])
+                  }
+                >
+                  {PROTOCOLS.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <dl className="kv">
+                <dt>Asks</dt>
+                <dd>{protocol.asks}</dd>
+                <dt>Decided by</dt>
+                <dd>{protocol.decidedBy}</dd>
+                <dt>Arms</dt>
+                <dd>
+                  {protocol.arms.map((a) => `${a.strategy}/${a.condition}`).join(', ')}
+                </dd>
+                <dt>Repeats</dt>
+                <dd>{protocol.repeats}</dd>
+                <dt>Shared prefix</dt>
+                <dd>{protocol.sharedPrefix ? 'rooms 1-6 played once per strategy' : 'no'}</dd>
+              </dl>
+              <div className="ctl" style={{ marginTop: 10 }}>
                 <button
                   className="btn warn"
                   disabled={experiment.running || !status?.hasKey}
                   onClick={() => {
-                    if (
-                      confirm(
-                        `This spends real API calls: up to about ${estCalls} of them at the current budget. Continue?`,
-                      )
-                    )
-                      void runExperiment(1);
+                    const n = estimateCalls(protocol);
+                    if (confirm(`"${protocol.title}" spends real API calls: up to about ${n}. Continue?`))
+                      void runExperiment(protocol);
                   }}
                 >
-                  Run 1 repeat (≤ ~{estCalls} model calls)
+                  Run — up to ~{estimateCalls(protocol)} model calls
                 </button>
                 {experiment.running && <span style={{ color: 'var(--gold)' }}>running…</span>}
               </div>
               {experiment.log.length > 0 && (
                 <pre className="flatmem" style={{ marginTop: 10, maxHeight: 130 }}>
-                  {experiment.log.join('\n')}
+                  {experiment.log.join(String.fromCharCode(10))}
                 </pre>
               )}
               {experiment.rows.length > 0 && (

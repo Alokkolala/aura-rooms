@@ -14,3 +14,7 @@ runs/smoke-state.json
 !runs/live-cold-2026-09-18T1857.jsonl
 .env
 .env.local
+
+# scratch files used to compose commit messages
+.msg.txt
+.e11.md

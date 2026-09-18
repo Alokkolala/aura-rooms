@@ -60,13 +60,18 @@ const RESPONSE = `Reply with a single JSON object and nothing else:
 {
   "button": "A" | "B" | "C" | "D",
   "hypothesis": "the one thing this press is meant to find out, in a sentence",
-  "prediction": "the visible change you expect, or \\"unknown\\" if you cannot say",
+  "prediction": "the visible change you expect, in a few words",
+  "predicted_position": {"x": <number>, "y": <number>} or null,
   "memory": <as described above>,
   "contradiction": "what you just saw that conflicts with what you believed, or null"
 }
 
-"unknown" is a real answer for prediction. Do not invent confidence you do not
-have. Keep hypothesis and prediction to one short sentence each.`;
+"predicted_position" is where you expect the entity to END UP after this press,
+counting from the top-left of the grid. Give null if you genuinely cannot say —
+null is recorded as "did not commit", never as a wrong answer, so there is no
+reason to guess. Guessing when you do not know is worse than saying so.
+
+Keep hypothesis and prediction to one short sentence each.`;
 
 export function systemPrompt(strategy: StrategyName): string {
   return [COMMON, strategy === 'flat' ? FLAT_MEMORY : STRUCTURED_MEMORY, RESPONSE].join('\n\n');

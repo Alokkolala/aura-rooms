@@ -296,3 +296,128 @@ test('a room that exhausts its budget is recorded as a failure, not skipped', ()
   assert.deepEqual(run.state.levelOutcomes[0], { level: 1, solved: false, actions: 3 });
   assert.equal(run.state.levelsCompleted, 0);
 });
+
+// ---- metrics ----
+
+import { computeMetrics, beliefTracks, verdictOf, RECOVERY_STREAK, type StepRecord } from '../src/metrics.ts';
+
+function rec(over: Partial<StepRecord> & { step: number }): StepRecord {
+  const { step, ...rest } = over;
+  return {
+    type: 'step',
+    level: 7,
+    global_step: step,
+    level_step: step,
+    button: 'B',
+    hypothesis: '',
+    prediction: '',
+    predicted_position: null,
+    contradiction: null,
+    level_complete: false,
+    researcher: {
+      true_rules: { slipperyEnabled: false },
+      entity_before: { x: 0, y: 0, dir: 0 },
+      entity_after: { x: 1, y: 0, dir: 1 },
+      blocked: false,
+      auto_moved: 0,
+      discriminating_under_rule_change: false,
+      intervention_applied: true,
+    },
+    ...rest,
+  } as StepRecord;
+}
+
+test('a declined prediction is not scored as wrong', () => {
+  const s = rec({ step: 1, predicted_position: null });
+  assert.equal(verdictOf(s), null);
+  const m = computeMetrics([s]);
+  assert.equal(m.predictionsDeclined, 1);
+  assert.equal(m.predictionsCommitted, 0);
+  assert.equal(m.accuracy, null, 'accuracy is undefined when nothing was committed');
+});
+
+test('prediction accuracy counts only committed predictions', () => {
+  const m = computeMetrics([
+    rec({ step: 1, predicted_position: { x: 1, y: 0 } }), // right
+    rec({ step: 2, predicted_position: { x: 9, y: 9 } }), // wrong
+    rec({ step: 3, predicted_position: null }), // declined
+  ]);
+  assert.equal(m.predictionsCommitted, 2);
+  assert.equal(m.predictionsCorrect, 1);
+  assert.equal(m.accuracy, 0.5);
+});
+
+test('recovery needs a streak, and one lucky hit is not recovery', () => {
+  const hit = (n: number) => rec({ step: n, predicted_position: { x: 1, y: 0 } });
+  const miss = (n: number) => rec({ step: n, predicted_position: { x: 9, y: 9 } });
+
+  const lucky = computeMetrics([hit(1), miss(2), hit(3), miss(4)]);
+  assert.equal(lucky.firstCorrectAfterChange, 1, 'first correct is still recorded');
+  assert.equal(lucky.recoveredAtStep, null, 'but that is not a recovery');
+
+  const real = computeMetrics([miss(1), hit(2), hit(3), hit(4)]);
+  assert.equal(real.recoveredAtStep, 4);
+  assert.equal(RECOVERY_STREAK, 3);
+});
+
+test('declining mid-streak breaks it without counting as a failure', () => {
+  const hit = (n: number) => rec({ step: n, predicted_position: { x: 1, y: 0 } });
+  const m = computeMetrics([hit(1), hit(2), rec({ step: 3 }), hit(4), hit(5)]);
+  assert.equal(m.recoveredAtStep, null, 'the abstention broke the streak');
+  assert.equal(m.predictionsDeclined, 1);
+});
+
+test('metrics before the change do not count toward recovery', () => {
+  const stable = (n: number) =>
+    rec({
+      step: n,
+      predicted_position: { x: 1, y: 0 },
+      researcher: { ...rec({ step: n }).researcher, intervention_applied: false },
+    });
+  const m = computeMetrics([stable(1), stable(2), stable(3)]);
+  assert.equal(m.interventionAtStep, null);
+  assert.equal(m.recoveredAtStep, null, 'nothing has changed, so nothing can be recovered from');
+  assert.equal(m.accuracy, 1, 'accuracy is still tracked');
+});
+
+test('missed chances count telling presses made while still predicting wrongly', () => {
+  const telling = (n: number, right: boolean) =>
+    rec({
+      step: n,
+      predicted_position: right ? { x: 1, y: 0 } : { x: 9, y: 9 },
+      researcher: { ...rec({ step: n }).researcher, discriminating_under_rule_change: true },
+    });
+  const m = computeMetrics([telling(1, false), telling(2, false), telling(3, true)]);
+  assert.equal(m.firstTellingStep, 1);
+  assert.equal(m.tellingPressesBeforeRecovery, 2);
+});
+
+test('belief tracks follow each claim status across steps, and flag demotions', () => {
+  const mem = (entries: unknown[]) => JSON.stringify(entries);
+  const e = (id: string, status: string, deps: string[] = []) => ({
+    id, claim: `about ${id}`, status, supported_by: [], contradicted_by: [], depends_on: deps,
+  });
+  const before = { ...rec({ step: 1 }).researcher, intervention_applied: false };
+
+  const steps = [
+    rec({ step: 1, memory_accepted: mem([e('rule', 'confirmed')]), researcher: before }),
+    rec({ step: 2, memory_accepted: mem([e('rule', 'confirmed'), e('plan', 'hypothesis', ['rule'])]) }),
+    rec({ step: 3, memory_accepted: mem([e('rule', 'suspect'), e('plan', 'hypothesis', ['rule'])]) }),
+  ];
+
+  const tracks = beliefTracks(steps);
+  assert.equal(tracks[0].id, 'rule', 'roots sort before things built on them');
+  assert.deepEqual(tracks[0].status, ['confirmed', 'confirmed', 'suspect']);
+  assert.deepEqual(tracks[1].depends_on, ['rule']);
+  assert.equal(tracks[1].status[0], null, 'plan did not exist at step 1');
+
+  const m = computeMetrics(steps);
+  assert.deepEqual(m.demotedAfterChange, ['rule']);
+  assert.ok(m.statusChanges.some((c) => c.id === 'rule' && c.from === 'confirmed' && c.to === 'suspect'));
+});
+
+test('flat memory yields no belief tracks rather than crashing', () => {
+  const steps = [rec({ step: 1, memory_accepted: 'just some prose I wrote' })];
+  assert.deepEqual(beliefTracks(steps), []);
+  assert.deepEqual(computeMetrics(steps).statusChanges, []);
+});

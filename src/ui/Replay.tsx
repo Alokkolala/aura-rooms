@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Room } from './Room.tsx';
+import { BeliefTimeline, MetricsPanel, PredictionLedger } from './Behaviour.tsx';
+import type { StepRecord } from '../metrics.ts';
 import { LEVELS } from '../engine/levels.ts';
 import { step } from '../engine/engine.ts';
-import type { EntityState, Rules } from '../engine/types.ts';
 
 /**
  * Replay a recorded run from its JSONL, with no model calls.
@@ -12,27 +13,6 @@ import type { EntityState, Rules } from '../engine/types.ts';
  * drifted apart, and it is shown rather than hidden — a replay that silently
  * "fixed" a discrepancy would make the log useless as evidence.
  */
-
-interface StepRecord {
-  type: 'step';
-  level: number;
-  global_step: number;
-  level_step: number;
-  button: 'A' | 'B' | 'C' | 'D';
-  hypothesis: string;
-  prediction: string;
-  contradiction: string | null;
-  memory_after: string;
-  level_complete: boolean;
-  researcher: {
-    true_rules: Rules;
-    entity_before: EntityState;
-    entity_after: EntityState;
-    path: EntityState[];
-    blocked: boolean;
-    auto_moved: number;
-  };
-}
 
 interface RunFile {
   id: string;
@@ -73,6 +53,8 @@ export function Replay() {
   }
 
   const cur = steps[i];
+  // the behaviour views read the same shape the log already stores
+  const asRecords = steps;
 
   // Re-derive the outcome from the engine and compare it to the record.
   const check = useMemo(() => {
@@ -145,6 +127,18 @@ export function Replay() {
         )}
       </div>
 
+      {steps.length > 0 && (
+        <div className="app" style={{ padding: 0 }}>
+          <div>
+            <BeliefTimeline steps={asRecords} onPick={setI} selected={i} />
+          </div>
+          <div>
+            <MetricsPanel steps={asRecords} />
+            <PredictionLedger steps={asRecords} onPick={setI} selected={i} />
+          </div>
+        </div>
+      )}
+
       {cur && (
         <div className="app" style={{ padding: 0, gridTemplateColumns: 'minmax(0,1fr) 400px' }}>
           <div className="panel">
@@ -157,7 +151,7 @@ export function Replay() {
               </div>
               <Room
                 level={LEVELS[cur.level - 1]}
-                path={cur.researcher.path}
+                path={(cur.researcher.path ?? [cur.researcher.entity_before, cur.researcher.entity_after])}
                 animToken={i}
                 highlight={{ x: cur.researcher.entity_after.x, y: cur.researcher.entity_after.y }}
                 celebrate={cur.level_complete}
@@ -223,8 +217,10 @@ export function Replay() {
             </div>
 
             <div className="panel">
-              <h2>Memory after this step</h2>
-              <pre className="flatmem">{cur.memory_after || '(empty)'}</pre>
+              <h2>Memory the agent held when it chose</h2>
+              <pre className="flatmem">
+                {(cur as any).memory_in_prompt ?? (cur as any).memory_after ?? '(empty)'}
+              </pre>
             </div>
           </div>
         </div>

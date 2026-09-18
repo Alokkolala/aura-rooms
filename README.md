@@ -47,10 +47,42 @@ shown as a provider error — a failed call never becomes a fabricated agent rep
 npm run check
 ```
 
-32 checks: 13 on the engine and level set, 19 on the agent loop and the
-researcher/agent boundary.
+41 checks: 14 on the engine, level set and recorded logs, and 27 on the agent
+loop, the researcher/agent boundary, and the metrics.
 
 ---
+
+## Reading what the agent is doing
+
+Three tabs. **Play** is the room and the controls. **Replay** loads a recording.
+**Behaviour** is where the agent becomes legible:
+
+- **Belief timeline** — one row per belief, one cell per step, coloured by status,
+  with derived beliefs indented under what they were built on. A row that runs
+  green and turns amber at one column is the moment the agent stopped trusting
+  something; the rows that stayed green beside it are the rest of the answer.
+- **Prediction ledger** — what it said would happen against what did, with the
+  rule change marked as a break in the list.
+- **Measured** — accuracy, first telling press, first correct prediction after the
+  change, first room solved after it, recovery, and missed chances.
+
+Both work on loaded recordings too, so a committed log can be inspected without
+rerunning anything.
+
+## What counts as recovery
+
+Fixed before any run: **three committed correct predictions in a row, after the
+change**. Three rather than one, because a single correct prediction is as likely
+to be luck. "First success" and "recovered" are reported separately — collapsing
+them is the easiest way to overstate a result.
+
+This is only possible because the agent commits to a `predicted_position` rather
+than prose alone. A coordinate can be compared with `===`; prose can only be
+judged, and judging it would score writing quality instead of understanding.
+`null` means "I do not know" and is never counted as wrong.
+
+Beliefs demoted after the change are listed but never auto-labelled right or
+wrong — deciding that needs someone to read the claim, so it is left to you.
 
 ## Modes
 
@@ -60,7 +92,7 @@ researcher/agent boundary.
 | Random agent | no | Integration check — exercises every path without spending anything |
 | LLM agent | yes | The real thing: start, pause, single-step, restart empty |
 | Replay | no | Step through a recorded run; no model calls |
-| Pilot sweep | yes | Both strategies × three conditions, gated behind a confirm |
+| Protocols | yes | Named experiments from `src/experiment.ts`, each stating its question, what would answer it, and its cost before anything is spent |
 | `scripts/smoke.ts` | no | Drive the exact protocol by hand, for a model you cannot reach over HTTP |
 
 Strategy, condition, budget and seed lock once a run starts — changing them
