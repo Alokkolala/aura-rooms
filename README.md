@@ -158,11 +158,15 @@ step, and the full system prompt once in `run_start`.
 Runs where the rule was changed by hand are tagged `manual_intervention` so they
 can never pool with automated results.
 
-Three probe runs are committed in `runs/` because `RESEARCH_LOG.md` makes claims
-about them. Open the replay tab and load them: `smoke-cold-*` is the cold start,
-`probe3-*` is the revision failure, `probe4-echofix-*` is the same step after the
-prompt fix. The replay re-executes every recorded press through the engine, so
-you can check the logs rather than take them on trust.
+`runs/live-cold-*.jsonl` is committed and replays exactly; load it in the replay
+tab and the viewer re-executes every press through the engine so you can check it
+rather than take it on trust. A test asserts that this stays true for everything
+in `runs/`.
+
+Recordings from before the engine rebuild are in `runs/archive-engine-v1/` with
+their own README. They are kept as evidence for `RESEARCH_LOG.md` E5/E7 but
+cannot be replayed — the rooms and controls they used no longer exist. Every run
+now stamps `engine_version` so this cannot go unnoticed again.
 
 ---
 

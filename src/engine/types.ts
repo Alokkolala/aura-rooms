@@ -77,5 +77,17 @@ export const DELTA: ReadonlyArray<readonly [number, number]> = [
   [-1, 0],
 ];
 
+/**
+ * Bumped whenever button semantics, surface behaviour, or the level set change
+ * in a way that makes older recordings unreplayable.
+ *
+ * v1: turn-relative buttons (turn left / forward / turn right / back), diagonal
+ *     rotated the entity in place.
+ * v2: four absolute directions, diagonal deflects travel, all eight rooms
+ *     rebuilt. v1 recordings reference rooms that no longer exist and will not
+ *     replay — see runs/archive-engine-v1/.
+ */
+export const ENGINE_VERSION = 2;
+
 /** Hard cap on automatic effect resolution so the engine can never hang. */
 export const MAX_EFFECT_ITERATIONS = 64;

@@ -1,0 +1,1 @@
+{"type":"run_start","at":"2026-09-18T18:24:08.092Z","config":{"runId":"structured-hidden-manual-2026-09-18T1824-ltbe","strategy":"structured","condition":"hidden","driver":"manual","actionBudgetPerLevel":30,"seed":1},"resumed_from":null}

@@ -93,7 +93,20 @@ rules and the whole exercise would be theatre. Every single call reported zero
 tool uses, and I checked its first answer for any knowledge it couldn't have had.
 It was clean.
 
-### Run 1 — starting from nothing
+**Important caveat, and I got this wrong in the first version of this report.**
+These three runs are *not* three parts of one story. Run 1 was played on the
+current game. Runs 2 and 3 were played on an **earlier version** — before an
+external review prompted a rebuild that changed the controls from turn-relative
+to four absolute directions, redefined the diagonal surface, and reshaped all
+eight rooms. The room 7 that runs 2 and 3 took place in no longer exists; it was
+9 cells tall and is now 4. Their recordings will not even load in the replay
+viewer, and they are kept in `runs/archive-engine-v1/` for that reason.
+
+So: **run 1 covers room 1 only**, on the current engine. Runs 2 and 3 describe a
+game that has since been rebuilt, and their finding has not been reproduced
+since. Presenting them as one continuous set was sloppy of me.
+
+### Run 1 — starting from nothing (room 1 only, current engine)
 
 Empty memory, room 1, every button chosen by the model. It finished the room in
 8 presses; the theoretical best is 4. The four "wasted" presses weren't waste —
@@ -132,7 +145,7 @@ entry that explicitly recorded it was *built on* the direction rule. That's the
 structure the whole experiment is about — a belief, and things standing on top of
 that belief. It produced it unprompted.
 
-### Run 2 — the change, without help
+### Run 2 — the change, without help *(old engine, room 7, seeded memory)*
 
 Now the interesting one. I gave the agent a memory that already contained the
 correct rules (marked clearly as author-written, not learned) and dropped it into
@@ -157,7 +170,7 @@ built on the broken rule, and kept the broken rule itself. That is precisely
 backwards: the thing that was wrong survived, and the innocent things built on it
 got thrown out.
 
-### Run 3 — the same moment, one change
+### Run 3 — the same moment, one change *(old engine, room 7, seeded memory)*
 
 Then I found a flaw in my own setup. **The agent was being asked to report
 contradictions while never being shown its own prediction.** It saw what
@@ -190,8 +203,9 @@ next prediction was correct for the first time since the change.
 
 ### What this does and doesn't prove
 
-It's one run per condition. It could be luck. It has to be repeated before anyone
-believes it. But if it holds, it says something uncomfortable and useful:
+It's one run per condition, on a version of the game that no longer exists. It
+could be luck. It has to be repeated on the current engine before anyone believes
+it. But if it holds, it says something uncomfortable and useful:
 
 > A big chunk of what looks like *"the agent failed to notice the world changed"*
 > may actually be *"the setup never showed the agent what it had predicted."*
@@ -245,6 +259,16 @@ equal character limit, the structured side would have carried far less knowledge
 — purely because of whitespace. That's not a finding about memory, that's a bug
 in my ruler.
 
+**I let two runs become unreplayable and did not notice.** Rebuilding the rooms
+silently invalidated the two recordings that support the most interesting finding
+in this project. Worse, the replay viewer did not report a mismatch — it crashed,
+because a position recorded in the old 9x7 room 7 is off the edge of the new 9x4
+one, while the README was still telling people they could load those logs and
+check them. Now: every run records the engine version, the viewer reports an
+incompatible recording instead of dying, incompatible logs live in
+`runs/archive-engine-v1/`, and a test asserts that everything still in `runs/`
+replays exactly. That test found 58 further stale logs on the first run.
+
 **And an error I made during the live run itself.** At one step I typed part of
 the prompt by hand instead of copying the harness output, and got one field
 wrong. The agent dutifully reported a contradiction — about my typo. That step is
@@ -289,6 +313,9 @@ the floor rules, because a floor rule is what the experiment actually changes.
 - Nothing statistical. One run per condition.
 - No agent has yet reached the rule change using knowledge it learned itself —
   the adaptation runs used memory I wrote.
+- **On the current engine, the only agent evidence that exists is room 1.**
+  Everything about adaptation comes from the archived pre-rebuild runs and has
+  not been reproduced since.
 
 ---
 

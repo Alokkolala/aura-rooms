@@ -22,7 +22,7 @@ import path from 'node:path';
 import { CHANGED_RULES, DEFAULT_RULES, step } from '../src/engine/engine.ts';
 import { LEVELS } from '../src/engine/levels.ts';
 import { buildObservation, pose, auditForLeaks } from '../src/engine/observation.ts';
-import type { Button, EntityState, Rules } from '../src/engine/types.ts';
+import { ENGINE_VERSION, type Button, type EntityState, type Rules } from '../src/engine/types.ts';
 import { applyMemory, emptyMemory, renderMemory, type Memory, type StrategyName } from '../src/agent/memory.ts';
 import { systemPrompt, userPrompt } from '../src/agent/prompt.ts';
 import { extractJson, validate } from '../src/agent/schema.ts';
@@ -107,6 +107,7 @@ function init() {
   append(s, {
     type: 'run_start',
     at: new Date().toISOString(),
+    engine_version: ENGINE_VERSION,
     config: {
       runId: s.runId,
       strategy,

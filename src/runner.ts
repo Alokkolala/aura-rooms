@@ -1,7 +1,7 @@
 import { CHANGED_RULES, DEFAULT_RULES, step } from './engine/engine.ts';
 import { INTERVENTION_BEFORE_LEVEL, LEVELS } from './engine/levels.ts';
 import { buildObservation, pose, type LastAction, type Observation, type PreviousRoom } from './engine/observation.ts';
-import type { Button, EntityState, Rules } from './engine/types.ts';
+import { ENGINE_VERSION, type Button, type EntityState, type Rules } from './engine/types.ts';
 import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } from './agent/memory.ts';
 import { systemPrompt, userPrompt } from './agent/prompt.ts';
 import { extractJson, validate } from './agent/schema.ts';
@@ -123,6 +123,7 @@ export class Run {
       type: 'run_start',
       at: new Date().toISOString(),
       config,
+      engine_version: ENGINE_VERSION,
       resumed_from: resume ? { level_index: resume.levelIndex, from_run: resume.fromRunId } : null,
       // Logged in full and once. Together with each step's prompt_user this
       // makes the exact request the model answered reconstructible from the

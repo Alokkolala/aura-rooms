@@ -4,6 +4,8 @@
  * straight off the .ts source via Node's native type stripping.
  */
 import test from 'node:test';
+import fs from 'node:fs';
+import path from 'node:path';
 import assert from 'node:assert/strict';
 
 import { CHANGED_RULES, DEFAULT_RULES, step } from '../src/engine/engine.ts';
@@ -196,6 +198,33 @@ test('the intervention rooms make the change expensive enough to notice', () => 
       after - before >= 5,
       `level ${id}: the rule change only costs ${after - before} actions (${before} -> ${after})`,
     );
+  }
+});
+
+test('every recording committed under runs/ still replays exactly', () => {
+  // The README tells people they can load these and check the engine reproduces
+  // every press. That promise silently broke once already: rebuilding the rooms
+  // left two committed logs referencing a room 7 that no longer existed, and
+  // replaying them did not disagree — it threw. A recording that cannot be
+  // replayed belongs in runs/archive-engine-v1/, not in runs/.
+  const dir = 'runs';
+  if (!fs.existsSync(dir)) return;
+  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.jsonl'))) {
+    const lines = fs.readFileSync(path.join(dir, f), 'utf8').trim().split(/\r?\n/);
+    if (!lines[0]) continue;
+    for (const line of lines) {
+      const rec = JSON.parse(line);
+      if (rec.type !== 'step') continue;
+      const lv = LEVELS[rec.level - 1];
+      const p0 = rec.researcher.entity_before;
+      assert.ok(
+        lv && p0.y >= 0 && p0.y < lv.h && p0.x >= 0 && p0.x < lv.w,
+        `${f} step ${rec.global_step}: recorded position is outside room ${rec.level} as it exists now`,
+      );
+      const r = step(lv, p0, rec.button, rec.researcher.true_rules);
+      assert.deepEqual(r.state, rec.researcher.entity_after, `${f} step ${rec.global_step} diverges`);
+      assert.equal(r.complete, rec.level_complete, `${f} step ${rec.global_step} completion diverges`);
+    }
   }
 });
 

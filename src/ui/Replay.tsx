@@ -78,11 +78,22 @@ export function Replay() {
   const check = useMemo(() => {
     if (!cur) return null;
     const lv = LEVELS[cur.level - 1];
-    const r = step(lv, cur.researcher.entity_before, cur.button, cur.researcher.true_rules);
-    const same =
-      JSON.stringify(r.state) === JSON.stringify(cur.researcher.entity_after) &&
-      r.complete === cur.level_complete;
-    return { same, recomputed: r };
+    // A recording made on an older engine can reference a room that has since
+    // changed shape, so the stored position may be outside the current grid.
+    // That used to throw and take the whole viewer down; an incompatible
+    // recording is a thing to REPORT, not a crash.
+    const p = cur.researcher.entity_before;
+    if (!lv || p.y < 0 || p.y >= lv.h || p.x < 0 || p.x >= lv.w)
+      return { same: false, incompatible: true as const, recomputed: null };
+    try {
+      const r = step(lv, p, cur.button, cur.researcher.true_rules);
+      const same =
+        JSON.stringify(r.state) === JSON.stringify(cur.researcher.entity_after) &&
+        r.complete === cur.level_complete;
+      return { same, incompatible: false as const, recomputed: r };
+    } catch {
+      return { same: false, incompatible: true as const, recomputed: null };
+    }
   }, [cur]);
 
   return (
@@ -184,7 +195,13 @@ export function Replay() {
 
             <div className="panel researcher">
               <h2>Replay integrity</h2>
-              {check?.same ? (
+              {check?.incompatible ? (
+                <p style={{ color: 'var(--gold)', margin: 0 }}>
+                  ⚠ this recording does not fit the current engine — it was made before the
+                  rooms or the controls changed, so it cannot be replayed. See
+                  <span className="mono"> runs/archive-engine-v1/</span>.
+                </p>
+              ) : check?.same ? (
                 <p style={{ color: 'var(--green)', margin: 0 }}>
                   ✓ engine reproduces this recorded step exactly
                 </p>
