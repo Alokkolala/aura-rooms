@@ -187,8 +187,11 @@ and why.
 run has reached the intervention from self-accumulated experience. The only
 adaptation evidence is still an author-seeded probe.
 
-`RESEARCH_LOG.md` is the lab notebook: what was run, what was found, what broke,
-and three fairness bugs the probes exposed in the instrument itself.
+Three documents, by how much detail you want:
+- **`REPORT.md`** — plain-language account of what was built, how the agent
+  actually behaved, and what broke. Start here.
+- **`RESEARCH_LOG.md`** — the dated lab notebook, entry by entry.
+- **this file** — the manual.
 
 ## Known limitations
 
