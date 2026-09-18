@@ -1,0 +1,29 @@
+{
+  "name": "aura-rooms",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "verify": "node --test scripts/verify.ts",
+    "verify:harness": "node --test scripts/harness.test.ts",
+    "check": "tsc --noEmit -p tsconfig.app.json && node --test scripts/verify.ts scripts/harness.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}

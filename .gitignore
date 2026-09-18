@@ -1,0 +1,15 @@
+node_modules
+dist
+.scratch
+# Run logs are experiment data, not source. Out of git by default...
+runs/*.jsonl
+runs/smoke-state.json
+
+# ...except the probe runs RESEARCH_LOG.md actually cites. They are the evidence
+# for its claims, and committing them means anyone can load them in the replay
+# viewer and check the engine reproduces every recorded step.
+!runs/smoke-cold-2026-09-18T1816.jsonl
+!runs/probe3-2026-09-18T1824.jsonl
+!runs/probe4-echofix-2026-09-18T1829.jsonl
+.env
+.env.local
