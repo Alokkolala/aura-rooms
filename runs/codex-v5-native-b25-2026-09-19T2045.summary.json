@@ -1,0 +1,192 @@
+{
+  "run_id": "codex-v5-native-b25-2026-09-19T2045",
+  "engine_version": 5,
+  "provider": "codex",
+  "model": "gpt-5.6-luna",
+  "endpoint": "",
+  "config": {
+    "strategy": "native",
+    "condition": "hidden",
+    "budget": 25
+  },
+  "resumed_after_steps": [],
+  "outcomes": [
+    {
+      "level": 1,
+      "solved": true,
+      "actions": 4,
+      "deaths": 0
+    },
+    {
+      "level": 2,
+      "solved": true,
+      "actions": 4,
+      "deaths": 0
+    },
+    {
+      "level": 3,
+      "solved": true,
+      "actions": 8,
+      "deaths": 1
+    },
+    {
+      "level": 4,
+      "solved": true,
+      "actions": 5,
+      "deaths": 0
+    },
+    {
+      "level": 5,
+      "solved": true,
+      "actions": 9,
+      "deaths": 0
+    },
+    {
+      "level": 6,
+      "solved": false,
+      "actions": 25,
+      "deaths": 0
+    },
+    {
+      "level": 7,
+      "solved": true,
+      "actions": 15,
+      "deaths": 1
+    },
+    {
+      "level": 8,
+      "solved": true,
+      "actions": 11,
+      "deaths": 0
+    },
+    {
+      "level": 9,
+      "solved": true,
+      "actions": 10,
+      "deaths": 1
+    },
+    {
+      "level": 10,
+      "solved": true,
+      "actions": 7,
+      "deaths": 0
+    },
+    {
+      "level": 11,
+      "solved": true,
+      "actions": 8,
+      "deaths": 0
+    }
+  ],
+  "metrics": {
+    "totalActions": 106,
+    "roomsSolved": 10,
+    "deaths": 3,
+    "deathsAfterChange": 2,
+    "fieldsCommitted": 401,
+    "fieldsCorrect": 384,
+    "accuracy": 0.9576059850374065,
+    "predictionViolations": 10,
+    "predictionsDeclined": 0,
+    "interventionAtStep": 56,
+    "firstEvidenceStep": 66,
+    "firstRevisedPredictionStep": null,
+    "firstStrictRevisedPredictionStep": null,
+    "flaggedAtStep": 67,
+    "detectionDelay": null,
+    "detectionDelayFromChange": null,
+    "ruleRelevantViolations": 5,
+    "staleRulePredictions": 5,
+    "staleRuleActions": 2,
+    "staleRuleDeaths": 2,
+    "postChangeCompletionStep": 70,
+    "recovered": false,
+    "recoveredAtStep": null,
+    "recoveredStrict": false,
+    "recoveredStrictAtStep": null,
+    "transferStep": 81,
+    "transferSucceeded": true,
+    "changes": [
+      {
+        "index": 1,
+        "atStep": 56,
+        "rulesAfter": {
+          "swapped": true
+        },
+        "deaths": 2,
+        "firstEvidenceStep": 66,
+        "firstRevisedPredictionStep": null,
+        "firstStrictRevisedPredictionStep": null,
+        "flaggedAtStep": 67,
+        "detectionDelay": null,
+        "detectionDelayFromChange": null,
+        "ruleRelevantViolations": 5,
+        "staleRulePredictions": 5,
+        "staleRuleActions": 2,
+        "staleRuleDeaths": 2,
+        "postChangeCompletionStep": 70,
+        "recovered": false,
+        "recoveredAtStep": null,
+        "recoveredStrict": false,
+        "recoveredStrictAtStep": null,
+        "transferStep": 81,
+        "transferSucceeded": true
+      },
+      {
+        "index": 2,
+        "atStep": 92,
+        "rulesAfter": {
+          "swapped": false
+        },
+        "deaths": 0,
+        "firstEvidenceStep": 98,
+        "firstRevisedPredictionStep": 106,
+        "firstStrictRevisedPredictionStep": 106,
+        "flaggedAtStep": 102,
+        "detectionDelay": 8,
+        "detectionDelayFromChange": 14,
+        "ruleRelevantViolations": 0,
+        "staleRulePredictions": 0,
+        "staleRuleActions": 0,
+        "staleRuleDeaths": 0,
+        "postChangeCompletionStep": 98,
+        "recovered": true,
+        "recoveredAtStep": 106,
+        "recoveredStrict": true,
+        "recoveredStrictAtStep": 106,
+        "transferStep": 106,
+        "transferSucceeded": true
+      }
+    ],
+    "collateralAccuracyBefore": 0.965,
+    "collateralAccuracyAfter": 0.9834254143646409,
+    "collateralDrop": -0.018425414364640957,
+    "statusChanges": [],
+    "demotedAfterChange": [],
+    "hazardContacts": [
+      {
+        "level": 3,
+        "presses": 1,
+        "deaths": 1
+      },
+      {
+        "level": 7,
+        "presses": 1,
+        "deaths": 1
+      },
+      {
+        "level": 9,
+        "presses": 1,
+        "deaths": 1
+      }
+    ]
+  },
+  "invalid_replies": 0,
+  "tool_use_alarms": 0,
+  "seal_broken": false,
+  "usage": {
+    "input": 4360464,
+    "output": 14301,
+    "calls": 106
+  }
+}

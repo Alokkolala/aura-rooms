@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { INTERVENTION_BEFORE_LEVEL, LEVELS, NO_HAZARD_LEVELS, swappedAt } from '../src/engine/levels.ts';
+import { DEFAULT_INTERVENTIONS_BEFORE_LEVELS, INTERVENTION_BEFORE_LEVEL, LEVELS, NO_HAZARD_LEVELS, swappedAt } from '../src/engine/levels.ts';
 import { solve } from '../src/engine/solver.ts';
 import { buildObservation, FORBIDDEN_TOKENS } from '../src/engine/observation.ts';
 import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } from '../src/agent/memory.ts';
@@ -1002,6 +1002,10 @@ test('resuming from any prefix of a log sends exactly the prompt the next step r
     if (!start) continue;
     // a hand-driven run sent no prompt, so there is nothing to reproduce
     if (start.config.driver !== 'llm') continue;
+    // a variant run (moved changes, withheld field) can only be reproduced
+    // under its own environment; the check here runs under the default
+    const sched = start.curriculum?.interventions_before_levels;
+    if ((sched && sched.join() !== DEFAULT_INTERVENTIONS_BEFORE_LEVELS.join()) || start.observation_ablation?.length) continue;
     const { strategy, condition, actionBudgetPerLevel: budget } = start.config;
     for (let i = 0; i < records.length; i++) {
       if (records[i].type !== 'step') continue;

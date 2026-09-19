@@ -44,11 +44,14 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
-import { INTERVENTIONS_BEFORE_LEVELS, LEVELS, swappedAt } from '../src/engine/levels.ts';
+import { CHANGED_RULES } from '../src/engine/engine.ts';
+import { INTERVENTIONS_BEFORE_LEVELS, LEVELS, NO_HAZARD_LEVELS, swappedAt } from '../src/engine/levels.ts';
+import { solve } from '../src/engine/solver.ts';
 import {
   buildObservation,
   lastActionOf,
   auditForLeaks,
+  OBSERVATION_ABLATIONS,
   type LastAction,
   type PreviousRoom,
 } from '../src/engine/observation.ts';
@@ -228,6 +231,19 @@ async function main() {
     process.exit(1);
   }
   console.log(`provider       ${P.label}`);
+  // A variant schedule or ablation is allowed, but only one the rooms can
+  // carry: nothing hazard-free may be played swapped, and every room from the
+  // first change on must be finishable under both regimes.
+  if (process.env.AURA_INTERVENTIONS) {
+    const first = INTERVENTIONS_BEFORE_LEVELS[0];
+    if (!first || first <= Math.max(...NO_HAZARD_LEVELS))
+      throw new Error(`AURA_INTERVENTIONS=${process.env.AURA_INTERVENTIONS}: the first change must come after room ${Math.max(...NO_HAZARD_LEVELS)}`);
+    for (const lv of LEVELS.filter((l) => l.id >= first))
+      if (!solve(lv, DEFAULT_RULES) || !solve(lv, CHANGED_RULES))
+        throw new Error(`room ${lv.id} is not finishable under both regimes; the schedule ${INTERVENTIONS_BEFORE_LEVELS.join(',')} cannot be played`);
+    console.log(`schedule       changes before rooms ${INTERVENTIONS_BEFORE_LEVELS.join(', ')} (variant)`);
+  }
+  if (OBSERVATION_ABLATIONS.length) console.log(`ablation       withheld from the observation: ${OBSERVATION_ABLATIONS.join(', ')}`);
   if (STRATEGY === 'native' && P.provider !== 'codex')
     throw new Error('the native strategy is the subject keeping its own conversation; only the codex provider can do that');
   // One persisted conversation for the whole run. Its id is recorded on every
@@ -261,6 +277,7 @@ async function main() {
       type: 'run_start', at: new Date().toISOString(), engine_version: ENGINE_VERSION,
       config: { runId: RUN_ID, strategy: STRATEGY, condition: CONDITION, driver: 'llm', actionBudgetPerLevel: BUDGET, seed: 0 },
       curriculum: { rooms: LEVELS.length, interventions_before_levels: INTERVENTIONS_BEFORE_LEVELS },
+      observation_ablation: OBSERVATION_ABLATIONS,
       provider: P.provider, model: P.model, endpoint: P.endpoint, effort: P.effort,
       system_prompt: system,
     });

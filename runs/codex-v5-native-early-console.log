@@ -1,0 +1,163 @@
+
+> aura-rooms@0.0.0 campaign
+> node scripts/campaign.ts --strategy=native --condition=hidden --retries=3 --tag=codex-v5-native-early --budget=100
+
+provider       codex exec · gpt-5.6-luna
+schedule       changes before rooms 4, 10 (variant)
+  !! step 1: subject made 1 non-message item(s): error
+  r1 s  1 A HIT  1,4 -> 1,3
+  r1 s  2 B HIT  1,3 -> 2,3
+  r1 s  3 C HIT  2,3 -> 2,4
+  r1 s  4 D HIT  2,4 -> 1,4
+  r1 s  5 A HIT  1,4 -> 1,3
+  r1 s  6 A HIT  1,3 -> 1,2
+  r1 s  7 B HIT  1,2 -> 2,2
+  r1 s  8 B HIT  2,2 -> 3,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r2 s  9 A HIT  5,3 -> 5,2
+  r2 s 10 A HIT  5,2 -> 5,1
+  r2 s 11 D HIT  5,1 -> 4,1
+  r2 s 12 D HIT  4,1 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r3 s 13 A HIT  2,4 -> 2,3
+  r3 s 14 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 15 D HIT  2,4 -> 1,4
+        flags: Stepping toward the radial tile sent the entity back to (2,4) instead of reaching (2,2).
+  r3 s 16 A HIT  1,4 -> 1,3
+  r3 s 17 A HIT  1,3 -> 1,2
+  r3 s 18 A HIT  1,2 -> 1,1
+  r3 s 19 B HIT  1,1 -> 2,1
+  r3 s 20 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+  *** RULES SWAPPED on entering room 4 ***
+
+  r4 s 21 B HIT  3,4 -> 4,4
+  r4 s 22 B HIT  4,4 -> 5,4
+  r4 s 23 A HIT  5,4 -> 5,3
+  r4 s 24 A HIT  5,3 -> 5,2
+  r4 s 25 A MISS SENT BACK from 5,1   [tells: end_position,returned_to_start,room_changed]
+  r4 s 26 D HIT  3,4 -> 2,4
+        flags: Reaching the concentric tile reset the entity to (3,4) without changing rooms.
+  r4 s 27 D HIT  2,4 -> 1,4
+  r4 s 28 A HIT  1,4 -> 1,3
+  r4 s 29 A HIT  1,3 -> 1,2
+  r4 s 30 A HIT  1,2 -> 1,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r5 s 31 D HIT  5,4 -> 4,4
+  r5 s 32 A HIT  4,4 -> 4,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r6 s 33 D HIT  8,4 -> 7,4
+  r6 s 34 D HIT  7,4 -> 6,4
+  r6 s 35 A HIT  6,4 -> 6,3
+  r6 s 36 A HIT  6,3 -> 6,2
+  r6 s 37 A HIT  6,2 -> 6,1
+  r6 s 38 A HIT  6,1 -> 6,0
+  r6 s 39 D HIT  6,0 -> 5,0
+  r6 s 40 D HIT  5,0 -> 4,0
+  r6 s 41 D HIT  4,0 -> 3,0
+  r6 s 42 D HIT  3,0 -> 2,0
+  r6 s 43 D HIT  2,0 -> 1,0
+  r6 s 44 D HIT  1,0 -> 0,0
+  r6 s 45 C HIT  0,0 -> 0,1
+  r6 s 46 C HIT  0,1 -> 0,2
+  r6 s 47 C HIT  0,2 -> 0,3
+  r6 s 48 C HIT  0,3 -> 0,4
+  r6 s 49 B HIT  0,4 -> 1,4
+  r6 s 50 B HIT  1,4 -> 2,4
+  r6 s 51 B HIT  2,4 -> 3,4
+  r6 s 52 A HIT  3,4 -> 3,3
+  r6 s 53 B HIT  3,3 -> 4,3
+  r6 s 54 A HIT  4,3 -> 4,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r7 s 55 B HIT  4,4 -> 5,4
+  r7 s 56 B HIT  5,4 -> 6,4
+  r7 s 57 B HIT  6,4 -> 7,4
+  r7 s 58 A HIT  7,4 -> 7,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r8 s 59 D HIT  7,5 -> 6,5
+  r8 s 60 D HIT  6,5 -> 5,5
+  r8 s 61 D HIT  5,5 -> 4,5
+  r8 s 62 D HIT  4,5 -> 3,5
+  r8 s 63 D HIT  3,5 -> 2,5
+  r8 s 64 A HIT  2,5 -> 2,4
+  r8 s 65 A HIT  2,4 -> 2,3
+  r8 s 66 A HIT  2,3 -> 2,2
+  r8 s 67 A HIT  2,2 -> 2,1
+  r8 s 68 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r9 s 69 D HIT  3,5 -> 2,5
+  r9 s 70 D HIT  2,5 -> 1,5
+  r9 s 71 A HIT  1,5 -> 1,4
+  r9 s 72 A HIT  1,4 -> 1,3
+  r9 s 73 A HIT  1,3 -> 1,2
+  r9 s 74 A HIT  1,2 -> 1,1
+  r9 s 75 B HIT  1,1 -> 2,1
+  r9 s 76 B HIT  2,1 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+  *** RULES SWAPPED BACK on entering room 10 ***
+
+  r10 s 77 D HIT  4,5 -> 3,5
+  r10 s 78 D HIT  3,5 -> 2,5
+  r10 s 79 D HIT  2,5 -> 1,5
+  r10 s 80 A HIT  1,5 -> 1,4
+  r10 s 81 A HIT  1,4 -> 1,3
+  r10 s 82 C HIT  1,3 -> 1,4
+        flags: The upward route from (1,3) is blocked by a solid tile at (1,2).
+  r10 s 83 C HIT  1,4 -> 1,5
+  r10 s 84 B HIT  1,5 -> 2,5
+  r10 s 85 B HIT  2,5 -> 3,5
+  r10 s 86 B MISS 3,5 -> 4,5
+  r10 s 87 B HIT  4,5 -> 5,5
+  r10 s 88 B HIT  5,5 -> 6,5
+  r10 s 89 B HIT  6,5 -> 7,5
+  r10 s 90 A HIT  7,5 -> 7,4
+  r10 s 91 A HIT  7,4 -> 7,3
+  r10 s 92 A HIT  7,3 -> 7,2
+  r10 s 93 A HIT  7,2 -> 7,1
+  r10 s 94 D HIT  7,1 -> 6,1
+  r10 s 95 D HIT  6,1 -> 5,1
+  r10 s 96 D HIT  5,1 -> 4,1
+  r10 s 97 D HIT  4,1 -> 3,1
+  r10 s 98 D HIT  3,1 -> 2,1
+  r10 s 99 D MISS SENT BACK from 1,1   [tells: end_position,returned_to_start,room_changed]
+  r10 s100 D HIT  4,5 -> 3,5
+        flags: The radial tile reset the entity to (4,5) without changing rooms.
+  r10 s101 A MISS blocked
+  r10 s102 D HIT  3,5 -> 2,5
+        flags: The square above (3,5) is solid, so A left the entity in place.
+  r10 s103 D HIT  2,5 -> 1,5
+  r10 s104 A HIT  1,5 -> 1,4
+  r10 s105 A HIT  1,4 -> 1,3
+  r10 s106 B HIT  1,3 -> 2,3
+  r10 s107 B HIT  2,3 -> 3,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r11 s108 C HIT  7,1 -> 7,2
+  r11 s109 C HIT  7,2 -> 7,3
+  r11 s110 D MISS SENT BACK from 6,3   [tells: end_position,returned_to_start,room_changed]
+  r11 s111 C HIT  7,1 -> 7,2
+        flags: The radial tile reset the entity to (7,1) without changing rooms.
+  r11 s112 C HIT  7,2 -> 7,3
+  r11 s113 C MISS 7,3 -> 6,4
+  r11 s114 D HIT  6,4 -> 5,4
+        flags: Entering the diagonal tile moved the entity to (6,4) rather than leaving it at (7,4).
+  r11 s115 D HIT  5,4 -> 4,4
+  r11 s116 D HIT  4,4 -> 3,4
+  r11 s117 D HIT  3,4 -> 2,4
+  r11 s118 D HIT  2,4 -> 1,4  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+============================================================
+rooms solved   11/11
+presses        118   deaths 4 (3 after the change)
+accuracy       97%  (443/455 fields, 0 presses committed nothing)
+hazard touched r3:1(1 fatal) r4:1(1 fatal) r10:1(1 fatal) r11:1(1 fatal)
+change at      step 21
+first evidence 25
+R1 revised     30   (delay after evidence: 5)   strict 30
+R2 room after  30
+RECOVERED      step 30   strict step 30
+transfer       step 32
+stale rule     2 predictions, 1 actions (1 fatal)
+violations     2 on altered fields, 7 presses overall
+collateral     1pp accuracy drop on fields the change did not touch
+--- change 2 (step 77, back to original)
+first evidence 99   R1 107 (delay 8)   strict R1 107   R2 107
+RECOVERED      step 107   strict step 107   transfer 118   deaths 2
+stale rule     4 predictions, 2 actions (2 fatal)
+invalid        0
+non-message    1 codex item(s) besides the reply, none leaky - seal intact
+provider       codex exec · gpt-5.6-luna
+model calls    118  (5818725 tokens)
+log            C:\p2\autoaura\runs\codex-v5-native-early-2026-09-19T1930.jsonl
+EXIT 0

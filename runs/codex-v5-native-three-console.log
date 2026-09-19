@@ -1,0 +1,230 @@
+
+> aura-rooms@0.0.0 campaign
+> node scripts/campaign.ts --strategy=native --condition=hidden --retries=3 --tag=codex-v5-native-three --budget=100
+
+provider       codex exec · gpt-5.6-luna
+schedule       changes before rooms 4, 7, 10 (variant)
+  r1 s  1 A HIT  1,4 -> 1,3
+  r1 s  2 B HIT  1,3 -> 2,3
+  r1 s  3 A HIT  2,3 -> 2,2
+  r1 s  4 B MISS 2,2 -> 3,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r2 s  5 A HIT  5,3 -> 5,2
+  r2 s  6 A HIT  5,2 -> 5,1
+  r2 s  7 D HIT  5,1 -> 4,1
+  r2 s  8 D HIT  4,1 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r3 s  9 A HIT  2,4 -> 2,3
+  r3 s 10 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 11 D HIT  2,4 -> 1,4
+  r3 s 12 A HIT  1,4 -> 1,3
+  r3 s 13 A HIT  1,3 -> 1,2
+  r3 s 14 A HIT  1,2 -> 1,1
+  r3 s 15 B HIT  1,1 -> 2,1
+  r3 s 16 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+  *** RULES SWAPPED on entering room 4 ***
+
+  r4 s 17 B HIT  3,4 -> 4,4
+  r4 s 18 B HIT  4,4 -> 5,4
+  r4 s 19 A HIT  5,4 -> 5,3
+  r4 s 20 A HIT  5,3 -> 5,2
+  r4 s 21 A MISS SENT BACK from 5,1   [tells: end_position,returned_to_start,room_changed]
+  r4 s 22 D HIT  3,4 -> 2,4
+        flags: Entering the concentric tile returned the entity to the start instead of changing rooms.
+  r4 s 23 B HIT  2,4 -> 3,4
+  r4 s 24 B HIT  3,4 -> 4,4
+  r4 s 25 B HIT  4,4 -> 5,4
+  r4 s 26 A HIT  5,4 -> 5,3
+  r4 s 27 A HIT  5,3 -> 5,2
+  r4 s 28 A MISS SENT BACK from 5,1   [tells: end_position,returned_to_start,room_changed]
+  r4 s 29 D HIT  3,4 -> 2,4
+        flags: Re-entering tile_1 did not unlock the concentric exit; reaching it still returned the entity to the start.
+  r4 s 30 D HIT  2,4 -> 1,4
+  r4 s 31 A HIT  1,4 -> 1,3
+  r4 s 32 A HIT  1,3 -> 1,2
+  r4 s 33 A MISS 1,2 -> 1,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r5 s 34 D HIT  5,4 -> 4,4
+  r5 s 35 D HIT  4,4 -> 3,4
+  r5 s 36 D HIT  3,4 -> 2,4
+  r5 s 37 D HIT  2,4 -> 1,4
+  step 38: REJECTED (Expected ',' or '}' after property value in JSON at position 265 (line 1 column 266); stop_reason=stop) — no press
+  r5 s 38 A HIT  1,4 -> 1,3
+  r5 s 39 A HIT  1,3 -> 1,2
+  r5 s 40 A HIT  1,2 -> 2,1
+  r5 s 41 B HIT  2,1 -> 3,1
+        flags: Entering the diagonal tile relocated the entity to (2,1) instead of changing rooms.
+  r5 s 42 B MISS SENT BACK from 4,1   [tells: end_position,returned_to_start,room_changed]
+  r5 s 43 D HIT  5,4 -> 4,4
+        flags: Entering the concentric tile returned the entity to the start, so the radial tile likely must be activated first.
+  r5 s 44 A HIT  4,4 -> 4,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r6 s 45 D HIT  8,4 -> 7,4
+  r6 s 46 A HIT  7,4 -> 7,3
+  r6 s 47 A HIT  7,3 -> 7,2
+  r6 s 48 A HIT  7,2 -> 7,1
+  r6 s 49 D HIT  7,1 -> 6,1
+  r6 s 50 A HIT  6,1 -> 6,0
+  r6 s 51 D HIT  6,0 -> 5,0
+  r6 s 52 D HIT  5,0 -> 4,0
+  r6 s 53 D HIT  4,0 -> 3,0
+  r6 s 54 D HIT  3,0 -> 2,0
+  r6 s 55 D HIT  2,0 -> 1,0
+  r6 s 56 C HIT  1,0 -> 1,1
+  r6 s 57 C HIT  1,1 -> 1,2
+  r6 s 58 C HIT  1,2 -> 1,3
+  r6 s 59 C HIT  1,3 -> 1,4
+  r6 s 60 B HIT  1,4 -> 2,4
+  r6 s 61 B HIT  2,4 -> 3,4
+  r6 s 62 A HIT  3,4 -> 3,3
+  r6 s 63 B HIT  3,3 -> 4,3
+  r6 s 64 A MISS 4,3 -> 4,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+  *** RULES SWAPPED BACK on entering room 7 ***
+
+  r7 s 65 B HIT  4,4 -> 5,4
+  r7 s 66 B HIT  5,4 -> 6,4
+  r7 s 67 B HIT  6,4 -> 7,4
+  r7 s 68 A HIT  SENT BACK from 7,3   [tells: end_position,returned_to_start,room_changed]
+  r7 s 69 D HIT  4,4 -> 3,4
+        flags: Entering the radial tile returned the entity to the start instead of changing rooms.
+  r7 s 70 D HIT  3,4 -> 2,4
+  r7 s 71 D HIT  2,4 -> 1,4
+  r7 s 72 A HIT  1,4 -> 1,3
+  r7 s 73 A HIT  1,3 -> 1,2
+  r7 s 74 A HIT  1,2 -> 1,1
+  r7 s 75 B HIT  1,1 -> 2,1
+  r7 s 76 B HIT  2,1 -> 3,1
+  r7 s 77 B HIT  3,1 -> 4,1
+  r7 s 78 B HIT  4,1 -> 5,1
+  r7 s 79 B HIT  5,1 -> 6,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r8 s 80 D HIT  7,5 -> 6,5
+  r8 s 81 D HIT  6,5 -> 5,5
+  r8 s 82 D HIT  5,5 -> 4,5
+  r8 s 83 D HIT  4,5 -> 3,5
+  r8 s 84 D HIT  3,5 -> 2,5
+  r8 s 85 A HIT  2,5 -> 2,4
+  r8 s 86 A HIT  2,4 -> 2,3
+  r8 s 87 A HIT  2,3 -> 2,2
+  r8 s 88 A HIT  2,2 -> 2,1
+  r8 s 89 A HIT  SENT BACK from 2,0   [tells: end_position,returned_to_start,room_changed]
+  r8 s 90 D HIT  7,5 -> 6,5
+        flags: Entering the radial tile returned the entity to the start instead of changing rooms.
+  r8 s 91 D HIT  6,5 -> 5,5
+  r8 s 92 D HIT  5,5 -> 4,5
+  r8 s 93 D HIT  4,5 -> 3,5
+  r8 s 94 D HIT  3,5 -> 2,5
+  r8 s 95 A HIT  2,5 -> 2,4
+  r8 s 96 A HIT  2,4 -> 2,3
+  r8 s 97 A HIT  2,3 -> 2,2
+  r8 s 98 A HIT  2,2 -> 2,1
+  r8 s 99 A HIT  SENT BACK from 2,0   [tells: end_position,returned_to_start,room_changed]
+  r8 s100 D HIT  7,5 -> 6,5
+        flags: Entering the radial tile still returned the entity to the start; the concentric goal remains locked.
+  r8 s101 D HIT  6,5 -> 5,5
+  r8 s102 D HIT  5,5 -> 4,5
+  r8 s103 D HIT  4,5 -> 3,5
+  r8 s104 D HIT  3,5 -> 2,5
+  r8 s105 D HIT  2,5 -> 1,5
+  r8 s106 D HIT  1,5 -> 0,5
+  r8 s107 A HIT  0,5 -> 0,4
+  r8 s108 B HIT  0,4 -> 1,4
+  r8 s109 A HIT  1,4 -> 1,3
+  r8 s110 C HIT  1,3 -> 1,4
+  r8 s111 B HIT  1,4 -> 2,4
+  r8 s112 B HIT  2,4 -> 3,4
+  r8 s113 B HIT  3,4 -> 4,4
+  r8 s114 B HIT  4,4 -> 5,4
+  r8 s115 B HIT  5,4 -> 6,4
+  r8 s116 B HIT  6,4 -> 7,4
+  r8 s117 D HIT  7,4 -> 6,4
+  r8 s118 D HIT  6,4 -> 5,4
+  r8 s119 D HIT  5,4 -> 4,4
+  r8 s120 D HIT  4,4 -> 3,4
+  r8 s121 D HIT  3,4 -> 2,4
+  r8 s122 A HIT  2,4 -> 2,3
+  r8 s123 A HIT  2,3 -> 2,2
+  r8 s124 A HIT  2,2 -> 2,1
+  r8 s125 A HIT  SENT BACK from 2,0   [tells: end_position,returned_to_start,room_changed]
+  r8 s126 A HIT  7,5 -> 7,4
+        flags: Activating the marked tiles in the previous left-to-right order did not unlock the radial-to-goal sequence.
+  r8 s127 D HIT  7,4 -> 6,4
+  r8 s128 D HIT  6,4 -> 5,4
+  r8 s129 D HIT  5,4 -> 4,4
+  r8 s130 D HIT  4,4 -> 3,4
+  r8 s131 D HIT  3,4 -> 2,4
+  r8 s132 D HIT  2,4 -> 1,4
+  r8 s133 A HIT  1,4 -> 1,3
+  r8 s134 B HIT  1,3 -> 2,3
+  r8 s135 A HIT  2,3 -> 2,2
+  r8 s136 A HIT  2,2 -> 2,1
+  r8 s137 A HIT  SENT BACK from 2,0   [tells: end_position,returned_to_start,room_changed]
+  r8 s138 D HIT  7,5 -> 6,5
+  r8 s139 D HIT  6,5 -> 5,5
+  r8 s140 D HIT  5,5 -> 4,5
+  r8 s141 D HIT  4,5 -> 3,5
+  r8 s142 D HIT  3,5 -> 2,5
+  r8 s143 A HIT  2,5 -> 2,4
+  r8 s144 A HIT  2,4 -> 2,3
+  r8 s145 A HIT  2,3 -> 2,2
+  r8 s146 A HIT  2,2 -> 2,1
+  r8 s147 B HIT  2,1 -> 3,1
+  r8 s148 A HIT  3,1 -> 3,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r9 s149 A HIT  3,5 -> 3,4
+  r9 s150 D MISS blocked
+  r9 s151 C HIT  3,4 -> 3,5
+        flags: The attempted left move from (3,4) was blocked; the central corridor is isolated at that row.
+  r9 s152 D HIT  3,5 -> 2,5
+  r9 s153 D HIT  2,5 -> 1,5
+  r9 s154 A HIT  1,5 -> 1,4
+  r9 s155 A HIT  1,4 -> 1,3
+  r9 s156 A HIT  1,3 -> 1,2
+  r9 s157 A HIT  1,2 -> 1,1
+  r9 s158 B HIT  1,1 -> 2,1
+  r9 s159 B HIT  SENT BACK from 3,1   [tells: end_position,returned_to_start,room_changed]
+  r9 s160 A HIT  3,5 -> 3,4
+  r9 s161 A HIT  3,4 -> 3,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+  *** RULES SWAPPED on entering room 10 ***
+
+  r10 s162 B HIT  4,5 -> 5,5
+  r10 s163 B HIT  5,5 -> 6,5
+  r10 s164 B HIT  6,5 -> 7,5
+  r10 s165 A HIT  7,5 -> 7,4
+  r10 s166 A HIT  7,4 -> 7,3
+  r10 s167 A HIT  7,3 -> 7,2
+  r10 s168 A HIT  7,2 -> 7,1
+  r10 s169 D HIT  7,1 -> 6,1
+  r10 s170 D HIT  6,1 -> 5,1
+  r10 s171 D HIT  5,1 -> 4,1
+  r10 s172 D HIT  4,1 -> 3,1
+  r10 s173 D HIT  3,1 -> 2,1
+  r10 s174 D MISS 2,1 -> 1,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r11 s175 C HIT  7,1 -> 7,2
+  r11 s176 C HIT  7,2 -> 7,3
+  r11 s177 D MISS 7,3 -> 6,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+============================================================
+rooms solved   11/11
+presses        177   deaths 10 (9 after the change)
+accuracy       97%  (660/681 fields, 0 presses committed nothing)
+hazard touched r3:1(1 fatal) r4:2(2 fatal) r5:1(1 fatal) r7:1(1 fatal) r8:4(4 fatal) r9:1(1 fatal)
+change at      step 17
+first evidence 21
+R1 revised     64   (delay after evidence: 43)   strict NEVER
+R2 room after  33
+RECOVERED      step 64   strict NO
+transfer       step 44
+stale rule     12 predictions, 3 actions (3 fatal)
+violations     12 on altered fields, 10 presses overall
+collateral     0pp accuracy drop on fields the change did not touch
+--- change 2 (step 65, back to original)
+first evidence 68   R1 79 (delay 11)   strict R1 79   R2 79
+RECOVERED      step 79   strict step 79   transfer 148   deaths 6
+stale rule     0 predictions, 6 actions (6 fatal)
+--- change 3 (step 162, swapped)
+first evidence 174   R1 NEVER (delay —)   strict R1 NEVER   R2 174
+RECOVERED      NO   strict NO   transfer 177   deaths 0
+stale rule     4 predictions, 0 actions (0 fatal)
+invalid        1
+provider       codex exec · gpt-5.6-luna
+model calls    178  (10669720 tokens)
+log            C:\p2\autoaura\runs\codex-v5-native-three-2026-09-19T1950.jsonl
+EXIT 0

@@ -15,6 +15,10 @@ runs/smoke-state.json
 !runs/gptoss20b-v4-2026-09-19T1333.jsonl
 !runs/codex-v5-b100-2026-09-19T1716.jsonl
 !runs/codex-v5-native-r3-2026-09-19T1821.jsonl
+!runs/codex-v5-native-early-2026-09-19T1930.jsonl
+!runs/codex-v5-native-three-2026-09-19T1950.jsonl
+!runs/codex-v5-native-nocf-2026-09-19T2021.jsonl
+!runs/codex-v5-native-b25-2026-09-19T2045.jsonl
 .env
 .env.local
 

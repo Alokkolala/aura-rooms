@@ -292,7 +292,19 @@ export const LEVELS: Level[] = SPECS.map((s, i) => ({
  * again. That return is the A->B->A the first eight rooms could not ask about —
  * whether a revision was a general idea or a one-off overwrite.
  */
-export const INTERVENTIONS_BEFORE_LEVELS = [7, 10];
+export const DEFAULT_INTERVENTIONS_BEFORE_LEVELS = [7, 10];
+
+/**
+ * A variant run may move the changes: `AURA_INTERVENTIONS="4,10"` swaps three
+ * rooms earlier, `"4,7,10"` swaps three times. The schedule is recorded in
+ * `run_start.curriculum`, the campaign refuses one under which any room from
+ * the first change on is unsolvable in either regime, and the checks in
+ * `scripts/` always run against the default.
+ */
+const scheduleFromEnv = (globalThis as any).process?.env?.AURA_INTERVENTIONS as string | undefined;
+export const INTERVENTIONS_BEFORE_LEVELS: number[] = scheduleFromEnv
+  ? scheduleFromEnv.split(',').map((x) => Number(x.trim())).filter((n) => Number.isInteger(n) && n > 0)
+  : DEFAULT_INTERVENTIONS_BEFORE_LEVELS;
 
 /** The first scheduled change; everything before it is acquisition. */
 export const INTERVENTION_BEFORE_LEVEL = INTERVENTIONS_BEFORE_LEVELS[0];

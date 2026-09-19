@@ -54,10 +54,23 @@ export interface LastAction {
    * have seen exactly where it last stood, so the agent is shown that too. What
    * it is NOT shown is why, or that a cause exists at all.
    */
-  came_from: { x: number; y: number };
+  came_from?: { x: number; y: number };
   /** The entity is in a different room from the one it pressed the button in. */
   room_changed: boolean;
 }
+
+/**
+ * Observation ablations for a variant run: `AURA_OBS_ABLATE="came_from"`
+ * withholds the waypoint, which is the one field the comment above says the
+ * experiment cannot be won without. That claim is what the ablation tests.
+ * Recorded in `run_start.observation_ablation`; never set for the protocol.
+ */
+export const OBSERVATION_ABLATIONS: string[] = (
+  ((globalThis as any).process?.env?.AURA_OBS_ABLATE as string | undefined) ?? ''
+)
+  .split(',')
+  .map((x) => x.trim())
+  .filter(Boolean);
 
 /**
  * How the room the agent was just in came to an end.
@@ -119,7 +132,7 @@ export function lastActionOf(args: {
     button: args.button,
     before: pose(args.before),
     after: pose(args.after),
-    came_from: { x: prior.x, y: prior.y },
+    ...(OBSERVATION_ABLATIONS.includes('came_from') ? {} : { came_from: { x: prior.x, y: prior.y } }),
     room_changed: args.roomChanged,
   };
 }

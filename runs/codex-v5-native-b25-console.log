@@ -1,0 +1,153 @@
+
+> aura-rooms@0.0.0 campaign
+> node scripts/campaign.ts --strategy=native --condition=hidden --retries=3 --tag=codex-v5-native-b25 --budget=25
+
+provider       codex exec · gpt-5.6-luna
+  r1 s  1 A HIT  1,4 -> 1,3
+  r1 s  2 B HIT  1,3 -> 2,3
+  r1 s  3 A HIT  2,3 -> 2,2
+  r1 s  4 B HIT  2,2 -> 3,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r2 s  5 D HIT  5,3 -> 4,3
+  r2 s  6 D HIT  4,3 -> 3,3
+  r2 s  7 A HIT  3,3 -> 3,2
+  r2 s  8 A HIT  3,2 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r3 s  9 A HIT  2,4 -> 2,3
+  r3 s 10 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 11 D HIT  2,4 -> 1,4
+        flags: Stepping toward the radial tile returned the entity to the room’s start.
+  r3 s 12 A HIT  1,4 -> 1,3
+  r3 s 13 A HIT  1,3 -> 1,2
+  r3 s 14 A HIT  1,2 -> 1,1
+  r3 s 15 B HIT  1,1 -> 2,1
+  r3 s 16 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r4 s 17 B HIT  3,4 -> 4,4
+  r4 s 18 B HIT  4,4 -> 5,4
+  r4 s 19 A HIT  5,4 -> 5,3
+  r4 s 20 A HIT  5,3 -> 5,2
+  r4 s 21 A HIT  5,2 -> 5,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r5 s 22 D HIT  5,4 -> 4,4
+  r5 s 23 D HIT  4,4 -> 3,4
+  r5 s 24 D HIT  3,4 -> 2,4
+  r5 s 25 D HIT  2,4 -> 1,4
+  r5 s 26 A HIT  1,4 -> 1,3
+  r5 s 27 A HIT  1,3 -> 1,2
+  r5 s 28 A HIT  1,2 -> 2,1
+  r5 s 29 B HIT  2,1 -> 3,1
+        flags: Entering the diagonal tile moved the entity diagonally to (2,1) instead of leaving it at (1,1).
+  r5 s 30 B HIT  3,1 -> 4,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r6 s 31 D HIT  8,4 -> 7,4
+  r6 s 32 A HIT  7,4 -> 7,3
+  r6 s 33 A HIT  7,3 -> 7,2
+  r6 s 34 A HIT  7,2 -> 7,1
+  r6 s 35 D HIT  7,1 -> 6,1
+  r6 s 36 A HIT  6,1 -> 6,0
+  r6 s 37 D HIT  6,0 -> 5,0
+  r6 s 38 D HIT  5,0 -> 4,0
+  r6 s 39 D HIT  4,0 -> 3,0
+  r6 s 40 D HIT  3,0 -> 2,0
+  r6 s 41 D HIT  2,0 -> 1,0
+  r6 s 42 A MISS blocked
+  r6 s 43 D HIT  1,0 -> 0,0
+        flags: Moving down from (1,0) was blocked despite the target appearing as tile_0.
+  r6 s 44 A MISS blocked
+  r6 s 45 B HIT  0,0 -> 1,0
+        flags: Descending from the top row is blocked at both tested left-side columns.
+  r6 s 46 B HIT  1,0 -> 2,0
+  r6 s 47 B HIT  2,0 -> 3,0
+  r6 s 48 B HIT  3,0 -> 4,0
+  r6 s 49 B HIT  4,0 -> 5,0
+  r6 s 50 B HIT  5,0 -> 6,0
+  r6 s 51 A MISS blocked
+  r6 s 52 D HIT  6,0 -> 5,0
+        flags: The apparent open tile at (6,1) is also blocked from above.
+  r6 s 53 B HIT  5,0 -> 6,0
+        flags: The blocked tests used A, which moves upward; I have not yet tested downward movement with C.
+  r6 s 54 C HIT  6,0 -> 6,1
+  r6 s 55 C MISS 6,1 -> 6,2
+  room 6 FAILED (budget)
+
+  *** RULES SWAPPED on entering room 7 ***
+
+  r7 s 56 D HIT  4,4 -> 3,4
+  r7 s 57 D HIT  3,4 -> 2,4
+  r7 s 58 D HIT  2,4 -> 1,4
+  r7 s 59 A HIT  1,4 -> 1,3
+  r7 s 60 A HIT  1,3 -> 1,2
+  r7 s 61 A HIT  1,2 -> 1,1
+  r7 s 62 B HIT  1,1 -> 2,1
+  r7 s 63 B HIT  2,1 -> 3,1
+  r7 s 64 B HIT  3,1 -> 4,1
+  r7 s 65 B HIT  4,1 -> 5,1
+  r7 s 66 B MISS SENT BACK from 6,1   [tells: end_position,returned_to_start,room_changed]
+  r7 s 67 B HIT  4,4 -> 5,4
+        flags: Entering the concentric tile from the left returned the entity to the room start instead of changing rooms.
+  r7 s 68 B HIT  5,4 -> 6,4
+  r7 s 69 B HIT  6,4 -> 7,4
+  r7 s 70 A MISS 7,4 -> 7,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r8 s 71 D HIT  7,5 -> 6,5
+  r8 s 72 D HIT  6,5 -> 5,5
+  r8 s 73 D HIT  5,5 -> 4,5
+  r8 s 74 D HIT  4,5 -> 3,5
+  r8 s 75 D HIT  3,5 -> 2,5
+  r8 s 76 C MISS blocked
+  r8 s 77 A HIT  2,5 -> 2,4
+        flags: C moves downward, so the previous press at the bottom boundary had no effect.
+  r8 s 78 A HIT  2,4 -> 2,3
+  r8 s 79 A HIT  2,3 -> 2,2
+  r8 s 80 A HIT  2,2 -> 2,1
+        flags: Entering the diagonal tile caused no special movement.
+  r8 s 81 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r9 s 82 A HIT  3,5 -> 3,4
+  r9 s 83 A MISS SENT BACK from 3,3   [tells: end_position,returned_to_start,room_changed]
+  r9 s 84 D HIT  3,5 -> 2,5
+        flags: The central concentric tile resets the entity when entered from below.
+  r9 s 85 D HIT  2,5 -> 1,5
+  r9 s 86 A HIT  1,5 -> 1,4
+  r9 s 87 A HIT  1,4 -> 1,3
+  r9 s 88 A HIT  1,3 -> 1,2
+  r9 s 89 A HIT  1,2 -> 1,1
+  r9 s 90 B HIT  1,1 -> 2,1
+  r9 s 91 B HIT  2,1 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+  *** RULES SWAPPED BACK on entering room 10 ***
+
+  r10 s 92 D HIT  4,5 -> 3,5
+  r10 s 93 D HIT  3,5 -> 2,5
+  r10 s 94 D HIT  2,5 -> 1,5
+  r10 s 95 A HIT  1,5 -> 1,4
+  r10 s 96 A HIT  1,4 -> 1,3
+  r10 s 97 B HIT  1,3 -> 2,3
+  r10 s 98 B HIT  2,3 -> 3,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r11 s 99 C HIT  7,1 -> 7,2
+  r11 s100 C HIT  7,2 -> 7,3
+  r11 s101 C MISS 7,3 -> 6,4
+  r11 s102 D HIT  6,4 -> 5,4
+        flags: Entering the diagonal tile shifted the entity from (7,4) to (6,4).
+  r11 s103 D HIT  5,4 -> 4,4
+  r11 s104 D HIT  4,4 -> 3,4
+  r11 s105 D HIT  3,4 -> 2,4
+  r11 s106 D HIT  2,4 -> 1,4  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+============================================================
+rooms solved   10/11
+presses        106   deaths 3 (2 after the change)
+accuracy       96%  (384/401 fields, 0 presses committed nothing)
+hazard touched r3:1(1 fatal) r7:1(1 fatal) r9:1(1 fatal)
+change at      step 56
+first evidence 66
+R1 revised     NEVER   (delay after evidence: —)   strict NEVER
+R2 room after  70
+RECOVERED      NO   strict NO
+transfer       step 81
+stale rule     5 predictions, 2 actions (2 fatal)
+violations     5 on altered fields, 10 presses overall
+collateral     -2pp accuracy drop on fields the change did not touch
+--- change 2 (step 92, back to original)
+first evidence 98   R1 106 (delay 8)   strict R1 106   R2 98
+RECOVERED      step 106   strict step 106   transfer 106   deaths 0
+stale rule     0 predictions, 0 actions (0 fatal)
+invalid        0
+provider       codex exec · gpt-5.6-luna
+model calls    106  (4374765 tokens)
+log            C:\p2\autoaura\runs\codex-v5-native-b25-2026-09-19T2045.jsonl
+EXIT 0
