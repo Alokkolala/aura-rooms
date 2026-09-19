@@ -930,3 +930,40 @@ test('the model shown in the UI is the model that answers', () => {
   });
 });
 
+
+
+// ------------------------------------------------------------------- resuming
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { hydrate, promptFor } from '../scripts/campaign.ts';
+
+test('resuming from any prefix of a log sends exactly the prompt the next step received', () => {
+  // A resumed run is the same experiment only if the subject cannot tell, and
+  // the subject sees nothing but the prompt. The prompt is a pure function of
+  // the state, so this is checkable byte for byte against every log in runs/:
+  // rebuild the state from everything recorded before step k, and the prompt
+  // the runner would send must be the one step k actually got — observation,
+  // memory, the echoed prediction, a rejected-memory notice, all of it.
+  const dir = 'runs';
+  let checked = 0;
+  for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.jsonl'))) {
+    const records = fs.readFileSync(path.join(dir, f), 'utf8').split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l));
+    const start = records.find((r) => r.type === 'run_start');
+    if (!start) continue;
+    const { strategy, condition, actionBudgetPerLevel: budget } = start.config;
+    for (let i = 0; i < records.length; i++) {
+      if (records[i].type !== 'step') continue;
+      const before = records.slice(0, i);
+      if (!before.some((r) => r.type === 'step')) continue;
+      const s = hydrate(before, strategy, condition, budget);
+      assert.equal(
+        promptFor(s).user,
+        records[i].prompt_user,
+        `${f}: resuming before step ${records[i].global_step} would send a different prompt`,
+      );
+      checked++;
+    }
+  }
+  assert.ok(checked > 0, 'no log in runs/ has two consecutive steps to check against');
+});

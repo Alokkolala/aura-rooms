@@ -463,7 +463,8 @@ export async function ask(
   // log whose subject changed halfway through describes two experiments.
   const c = resolveConfig(opts.model);
   const maxTokens = opts.maxTokens ?? 8000;
-  const timeoutMs = opts.timeoutMs ?? 300_000;
+  // One knob for both callers. A stalled call is killed, logged, and asked again.
+  const timeoutMs = opts.timeoutMs ?? (Number(process.env.AURA_TIMEOUT_MS) || 300_000);
   const t0 = Date.now();
   const out =
     c.provider === 'codex'
