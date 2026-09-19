@@ -1,9 +1,10 @@
 # AURA Rooms — working notes for Claude
 
-A research instrument, not a product. An LLM agent is dropped into eight grid
+A research instrument, not a product. An LLM agent is dropped into eleven grid
 rooms with nothing labelled; it predicts, presses a button, rewrites its memory.
-After room 6 one rule silently swaps. The question is whether it acquires a world
-model, detects the change, and revises the right belief.
+After room 6 one rule silently swaps; after room 9 it silently swaps back. The
+question is whether it acquires a world model, detects the change, revises the
+right belief — and whether the second revision is cheaper than the first.
 
 Read in this order: `README.md` (manual), `REPORT.md` (story), `RESEARCH_LOG.md`
 (dated lab notebook, E0–E16). Most "why is it like this" questions are answered
@@ -27,9 +28,9 @@ curriculum that quietly teaches nothing.
 
 | path | what |
 |---|---|
-| `src/engine/` | deterministic world: `types.ts` (glyphs, `ENGINE_VERSION`), `engine.ts` (`step`, rules), `levels.ts` (the 8 rooms — **the curriculum is the experiment**), `observation.ts` (what the agent is shown + `auditForLeaks`), `solver.ts` (BFS, `banned` option) |
+| `src/engine/` | deterministic world: `types.ts` (glyphs, `ENGINE_VERSION`), `engine.ts` (`step`, rules), `levels.ts` (the 11 rooms, `INTERVENTIONS_BEFORE_LEVELS` — **the curriculum is the experiment**), `observation.ts` (what the agent is shown + `auditForLeaks`), `solver.ts` (BFS, `banned` option) |
 | `src/agent/` | `prompt.ts` (system/user prompt), `schema.ts` (reply validation, 4 prediction fields), `memory.ts` (flat vs structured stores) |
-| `src/metrics.ts` | `resolveBoth` (every press resolved under both rule sets → `divergent_fields`), `computeMetrics` (R1 ∧ R2 recovery, delays, stale-rule counts, `collateralDrop`) |
+| `src/metrics.ts` | `resolveBoth` (every press resolved under both rule sets → `divergent_fields`), `computeMetrics` (R1 ∧ R2 recovery, strict R1, delays, stale-rule counts, `collateralDrop`; scored per scheduled change in `changes[]`, top-level = the first) |
 | `src/runner.ts`, `src/experiment.ts` | browser run loop; declared protocols |
 | `src/ui/`, `src/App.tsx` | Play / Replay / Behaviour / Wire log tabs |
 | `server/provider.ts` | the ONLY model adapter: anthropic / openai-compatible / codex. `server/api.ts` is vite middleware over it |
@@ -77,8 +78,9 @@ with explicit `.ts` extensions.
   added as a dated note under the old entry, never by rewriting history.
 - Editing a room: keep `requires` honest; `npm run verify` bans each required
   surface and asserts unsolvability, checks no two rooms share a solution, rooms
-  1–2 hazard-free, room 7 contradictory both ways, rooms 7–8 solvable under both
-  regimes. Then update the reference-length table in README.
+  1–2 hazard-free, rooms 7 and 10 contradictory both ways, rooms 7–11 solvable
+  under both regimes, the deflector carrying in rooms 5 and 11. Then update the
+  reference-length table in README.
 - Changing what the agent sees or predicts → update the forbidden-token list,
   the schema test, and `PREDICTION_FIELDS`; bump `ENGINE_VERSION` if old logs
   stop replaying.
@@ -90,11 +92,12 @@ with explicit `.ts` extensions.
 
 ## Where things stand (2026-09-19, branch `aura-v4`)
 
-Engine v4. One automated run exists: `runs/codex-v4-2026-09-19T1208.jsonl`
-(codex · gpt-5.6-luna, structured, hidden, budget 25, 114 presses, resumed once
-at step 49) — written up as E17. It scores `recovered` under the pre-registered
-R1 but the transcript shows no surface belief was ever revised; every death was
-blamed on a button. Queued, in order: strict R1 + blame ledger in `metrics.ts`;
-rooms 6 and 8 rebuilt so the deflector actually carries (engine v5, archive the
-log — user's decision); stable arm; flat arm. No flat-memory run exists on any
-engine; no A→B→A return exists.
+Engine v5 (uncommitted on top of `8f9622f`): rooms 9–11 and the swap back
+before room 10, per-change metrics, strict R1 — designed in E19 after the two
+v4 runs of E18. Three v4 logs replay exactly on v5 and stay in `runs/`:
+`codex-v4-…T1208` (budget 25, E17), `codex-v4-b100-…T1413` (budget 100,
+recovered + transferred), `gptoss20b-v4-…T1333` (never saw evidence, stopped
+by hand in room 8). Rooms 6 and 8 still never deflect on their reference
+route — declared, not fixed, so the v4 logs stay live. Queued: the first v5
+run (codex, budget 100, expectations pre-registered in E19); the blame ledger;
+stable arm; flat arm (never run on any engine).

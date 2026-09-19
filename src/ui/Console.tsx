@@ -143,7 +143,7 @@ export function AgentConsole({
           </button>
           <span className="spacer" />
           <span className="cstat">
-            room <b>{s.levelIndex + 1}</b>/8 · step <b>{s.globalStep}</b> · solved{' '}
+            room <b>{s.levelIndex + 1}</b>/{LEVELS.length} · step <b>{s.globalStep}</b> · solved{' '}
             <b>{s.levelsCompleted}</b> · deaths <b>{s.deaths}</b>
           </span>
         </div>

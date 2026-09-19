@@ -32,6 +32,19 @@ import type { Cell, Dir, Level } from './types.ts';
 //                          recovery still four presses away.
 //   8  transfer            new geometry, revised rule plus the deflector rule
 //                          that never changed.
+//   9  in the way          the revised rule as a PLAN, not a goal: the surface
+//                          that used to end rooms sits on the direct route to
+//                          the one that ends them now, and a detour exists.
+//   -- the swap is undone here, just as silently --
+//  10  the return          room 7's contradiction a second time, the other way
+//                          round. Same shape of surprise, so the two delays
+//                          can be compared: an agent that formed the idea
+//                          "those two can trade places" should pay less the
+//                          second time; one that merely overwrote a goal pays
+//                          the full price again.
+//  11  transfer II         the re-revised rule in a new map, with the deflector
+//                          load-bearing in a different orientation from room 5
+//                          and the lure one press off the route.
 //
 // TEMPTATION, BY CONSTRUCTION. The agent sees two centred, symmetrical figures
 // and has no way to know which one it wants. It needs no contrived shortcut to
@@ -197,6 +210,68 @@ const SPECS: Spec[] = [
     start: [7, 5, 0],
     requires: ['/'],
   },
+  {
+    // 9 — the revised rule has to be USED, not just held. After room 7 the
+    // radial is the only other marked surface, so heading for it is consistent
+    // with "the rings are not the goal" and says nothing about whether the
+    // agent knows the rings now send it back. Here the rings sit on the direct
+    // climb to the radial, two presses up, and the only safe way is the loop
+    // round either side: eight presses. An agent that treats the rings as a
+    // hazard takes the loop first time; one that only re-aimed walks straight
+    // into them and learns it the expensive way. Under the original rules the
+    // rings are the answer, two presses away.
+    name: 'in the way',
+    rows: [
+      '#######',
+      '#,.X.,#',
+      '#.#.#.#',
+      '#.#O#.#',
+      '#.#.#.#',
+      '#,.,.,#',
+      '#######',
+    ],
+    start: [3, 5, 0],
+    requires: [],
+  },
+  {
+    // 10 — the second intervention: the surfaces trade back, silently, and the
+    // agent arrives holding the rule it revised to. The geometry repeats room
+    // 7's logic with a different map and a different button string: the
+    // surface it now wants is at the end of the long way round, and kills; the
+    // one it learned to avoid is seven presses up a dead-end branch, and wins.
+    // What is measured is the delay of the SECOND revision against the first.
+    name: 'the return',
+    rows: [
+      '#########',
+      '#X.,.,..#',
+      '#######.#',
+      '#..O###.#',
+      '#.#####.#',
+      '#.,.,.,.#',
+      '#########',
+    ],
+    start: [4, 5, 0],
+    requires: [],
+  },
+  {
+    // 11 — transfer of the re-revised rule, and the deflector as it has not
+    // been seen before. In room 5 the deflector turned an upward climb to the
+    // right; here it turns a descent to the left, into the corridor that holds
+    // the rings, and there is no other way in. The radial sits one press off
+    // the column on the way down: three presses for an agent still carrying
+    // the rule from rooms 7-9, eight for one that has let it go.
+    name: 'transfer II',
+    rows: [
+      '#########',
+      '#######.#',
+      '#######,#',
+      '######X.#',
+      '#O,.,.,/#',
+      '#########',
+    ],
+    start: [7, 1, 0],
+    requires: ['/'],
+  },
 ];
 
 export const LEVELS: Level[] = SPECS.map((s, i) => ({
@@ -209,18 +284,34 @@ export const LEVELS: Level[] = SPECS.map((s, i) => ({
   requires: s.requires,
 }));
 
-/** Level index (1-based) at which the scheduled rule change takes effect. */
-export const INTERVENTION_BEFORE_LEVEL = 7;
+/**
+ * Levels (1-based) on whose entry the two marked surfaces trade meanings.
+ *
+ * Each scheduled change toggles the regime, so the second one undoes the
+ * first: rooms 7-9 are played swapped and rooms 10-11 under the original rules
+ * again. That return is the A->B->A the first eight rooms could not ask about —
+ * whether a revision was a general idea or a one-off overwrite.
+ */
+export const INTERVENTIONS_BEFORE_LEVELS = [7, 10];
+
+/** The first scheduled change; everything before it is acquisition. */
+export const INTERVENTION_BEFORE_LEVEL = INTERVENTIONS_BEFORE_LEVELS[0];
+
+/** Whether a changed arm plays `level` swapped: an odd number of changes precede it. */
+export function swappedAt(level: number): boolean {
+  return INTERVENTIONS_BEFORE_LEVELS.filter((l) => l <= level).length % 2 === 1;
+}
 
 /**
  * Rooms that must stay solvable under BOTH rule sets.
  *
- * Only the rooms played after the intervention. The `stable` arm reaches 7 and
- * 8 under the original rules and the changed arms reach them swapped, so both
- * have to work; rooms 1-6 are only ever played under the original rules, which
- * is what frees rooms 1 and 2 to contain no lethal surface at all.
+ * Every room from the first intervention on. The `stable` arm reaches them all
+ * under the original rules; the changed arms reach 7-9 swapped and 10-11
+ * original again, and no room may depend on which. Rooms 1-6 are only ever
+ * played under the original rules, which is what frees rooms 1 and 2 to
+ * contain no lethal surface at all.
  */
-export const DUAL_REGIME_LEVELS = [7, 8];
+export const DUAL_REGIME_LEVELS = [7, 8, 9, 10, 11];
 
 /**
  * Rooms with no lethal surface, declared rather than assumed.
@@ -231,6 +322,16 @@ export const DUAL_REGIME_LEVELS = [7, 8];
  * the two lessons tangled together.
  */
 export const NO_HAZARD_LEVELS = [1, 2];
+
+/**
+ * Rooms whose reference route is actually carried by the deflector.
+ *
+ * E17 found that rooms 6 and 8 satisfy `requires: ['/']` only as a place to
+ * stand: their diagonal is entered heading into a wall, so it never carries.
+ * They are left as they are so v4 recordings keep replaying; this list says
+ * which rooms DO demonstrate the mechanic, and a check holds it to that.
+ */
+export const DEFLECTOR_CARRIES_ON_REFERENCE = [5, 11];
 
 /** Where each mechanic is first introduced. Asserted, so the order cannot rot. */
 export const FIRST_INTRODUCED: Record<'hazard' | 'deflector', number> = {

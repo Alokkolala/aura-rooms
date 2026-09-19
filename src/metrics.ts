@@ -1,5 +1,4 @@
 import { CHANGED_RULES, DEFAULT_RULES, step } from './engine/engine.ts';
-import { LEVELS } from './engine/levels.ts';
 import { PREDICTION_FIELDS, type Prediction, type PredictionField } from './agent/schema.ts';
 import type { Button, EntityState, Level, Rules } from './engine/types.ts';
 
@@ -182,17 +181,60 @@ export function verdictOf(s: StepRecord): Verdict {
  * R2 is there because a prediction is cheap and a room is not. An agent can be
  * right about what a surface does and still never act on it.
  *
- * Transfer to the last room is deliberately NOT part of this conjunction. It is
- * a strictly harder bar, most runs will never reach it, and folding it in would
- * make `recovered` false for nearly every run in every arm — a number that is
+ * STRICT R1, pre-registered after E17 for every run from engine v5 on: every
+ * divergent field the agent COMMITTED to must be right, not just one of them.
+ * The loose form fired in E17 on a press that was two-thirds stale — one
+ * field happened to agree with the new rule while the other two were exactly
+ * what the dead rule predicted. Both are reported; `recoveredStrict` is the
+ * headline from v5 on and the loose one stays for comparison with v4 logs.
+ *
+ * Transfer is deliberately NOT part of this conjunction. It is a strictly
+ * harder bar, most runs will never reach it, and folding it in would make
+ * `recovered` false for nearly every run in every arm — a number that is
  * always zero separates nothing. It is reported beside recovery instead, as
- * `transferSucceeded`.
+ * `transferSucceeded`: a room finished after the change on a LATER level than
+ * the one R2 was earned in, i.e. the revised rule carried into a map it was
+ * not revised in. (On the eight-room curriculum that is exactly "finished room
+ * 8 after recovering in room 7", which is what it used to be defined as.)
+ *
+ * EVERY SCHEDULED CHANGE IS SCORED SEPARATELY. The curriculum now swaps the
+ * surfaces before room 7 and swaps them back before room 10, and the question
+ * the second one asks — is the second revision cheaper than the first? — is
+ * only answerable if each change has its own evidence step, R1, R2 and stale
+ * counts. `changes[k]` holds those; the top-level fields mirror `changes[0]`
+ * so every number reported for the first eight rooms keeps its meaning.
  */
 export const RECOVERY_CRITERION =
   'a correct prediction on a field the change altered, plus a room finished after the change';
 
-/** The last room. Reaching it after a change is transfer, not recovery. */
-export const TRANSFER_LEVEL = LEVELS.length;
+/** Recovery bookkeeping for one scheduled change, over the presses until the next. */
+export interface ChangeMetrics {
+  /** 1 for the swap before room 7, 2 for the swap back before room 10 */
+  index: number;
+  /** first press played under the new rules */
+  atStep: number;
+  rulesAfter: Rules;
+  deaths: number;
+  firstEvidenceStep: number | null;
+  firstRevisedPredictionStep: number | null;
+  /** strict R1: first telling press with every committed divergent field right */
+  firstStrictRevisedPredictionStep: number | null;
+  flaggedAtStep: number | null;
+  detectionDelay: number | null;
+  detectionDelayFromChange: number | null;
+  ruleRelevantViolations: number;
+  staleRulePredictions: number;
+  staleRuleActions: number;
+  staleRuleDeaths: number;
+  postChangeCompletionStep: number | null;
+  recovered: boolean;
+  recoveredAtStep: number | null;
+  /** strict R1 and R2 */
+  recoveredStrict: boolean;
+  recoveredStrictAtStep: number | null;
+  transferStep: number | null;
+  transferSucceeded: boolean;
+}
 
 export interface Metrics {
   totalActions: number;
@@ -214,6 +256,8 @@ export interface Metrics {
   firstEvidenceStep: number | null;
   /** R1 — first correct prediction on a field the change altered */
   firstRevisedPredictionStep: number | null;
+  /** strict R1 — first telling press with every committed altered field right */
+  firstStrictRevisedPredictionStep: number | null;
   /** first self-reported contradiction at or after the first evidence */
   flaggedAtStep: number | null;
   /** R1 measured from the first press that could have shown the change */
@@ -234,8 +278,13 @@ export interface Metrics {
   postChangeCompletionStep: number | null;
   recovered: boolean;
   recoveredAtStep: number | null;
+  recoveredStrict: boolean;
+  recoveredStrictAtStep: number | null;
   transferStep: number | null;
   transferSucceeded: boolean;
+
+  /** the same bookkeeping per scheduled change; the fields above are `changes[0]` */
+  changes: ChangeMetrics[];
 
   /**
    * Accuracy on fields the change did NOT alter, before and after it.
@@ -340,6 +389,7 @@ export function computeMetrics(steps: StepRecord[]): Metrics {
     interventionAtStep: null,
     firstEvidenceStep: null,
     firstRevisedPredictionStep: null,
+    firstStrictRevisedPredictionStep: null,
     flaggedAtStep: null,
     detectionDelay: null,
     detectionDelayFromChange: null,
@@ -350,8 +400,11 @@ export function computeMetrics(steps: StepRecord[]): Metrics {
     postChangeCompletionStep: null,
     recovered: false,
     recoveredAtStep: null,
+    recoveredStrict: false,
+    recoveredStrictAtStep: null,
     transferStep: null,
     transferSucceeded: false,
+    changes: [],
     collateralAccuracyBefore: null,
     collateralAccuracyAfter: null,
     collateralDrop: null,
@@ -365,6 +418,11 @@ export function computeMetrics(steps: StepRecord[]): Metrics {
   const hazard = new Map<number, { presses: number; deaths: number }>();
   let steadyBefore = { correct: 0, total: 0 };
   let steadyAfter = { correct: 0, total: 0 };
+  // A change is wherever the rules in force differ from the press before. The
+  // first one is also where `intervention_applied` turns on; the swap back is
+  // only visible this way, because that flag never turns off.
+  let prevRules: Rules = DEFAULT_RULES;
+  let c: ChangeMetrics | null = null;
 
   for (const s of steps) {
     const r = s.researcher;
@@ -372,6 +430,22 @@ export function computeMetrics(steps: StepRecord[]): Metrics {
     const outcome = r.outcome;
     const divergent = r.divergent_fields ?? [];
     if (changed && m.interventionAtStep === null) m.interventionAtStep = s.global_step;
+    // the first change opens when the flag turns on; a later one when the
+    // rules in force flip while it is on
+    const flipped = c !== null && !!r.true_rules && r.true_rules.swapped !== prevRules.swapped;
+    if (changed && (c === null || flipped)) {
+      c = {
+        index: m.changes.length + 1, atStep: s.global_step, rulesAfter: r.true_rules, deaths: 0,
+        firstEvidenceStep: null, firstRevisedPredictionStep: null, firstStrictRevisedPredictionStep: null,
+        flaggedAtStep: null, detectionDelay: null, detectionDelayFromChange: null,
+        ruleRelevantViolations: 0, staleRulePredictions: 0, staleRuleActions: 0, staleRuleDeaths: 0,
+        postChangeCompletionStep: null, recovered: false, recoveredAtStep: null,
+        recoveredStrict: false, recoveredStrictAtStep: null,
+        transferStep: null, transferSucceeded: false,
+      };
+      m.changes.push(c);
+    }
+    if (changed && r.true_rules) prevRules = r.true_rules;
 
     if (r.touched_lethal) {
       const h = hazard.get(s.level) ?? { presses: 0, deaths: 0 };
@@ -403,48 +477,59 @@ export function computeMetrics(steps: StepRecord[]): Metrics {
     if (committedHere === 0) m.predictionsDeclined++;
     if (violatedHere) m.predictionViolations++;
 
-    if (!changed) {
+    if (!changed || !c) {
       // ---- belief bookkeeping still runs before the change ----
       prevStatus = trackBeliefs(s, prevStatus, statusBeforeChange, m, false);
       continue;
     }
 
-    // ---- everything below is post-change only ----
-    if (divergent.length && m.firstEvidenceStep === null) m.firstEvidenceStep = s.global_step;
+    // ---- everything below is scored against the change currently in force ----
+    if (r.died) c.deaths++;
+    if (divergent.length && c.firstEvidenceStep === null) c.firstEvidenceStep = s.global_step;
 
     if (outcome && divergent.length) {
       let calledIt = false;
+      let committed = 0;
+      let allRight = true;
       for (const f of divergent) {
         const v = scoreField(s.expect, outcome, f);
         if (v === null) continue;
+        committed++;
         if (v) calledIt = true;
         else {
-          m.ruleRelevantViolations++;
+          allRight = false;
+          c.ruleRelevantViolations++;
           // was the wrong answer exactly what the dead rule would have given?
           const stale = r.outcome_under_other_rules;
-          if (stale && scoreField(s.expect, stale, f) === true) m.staleRulePredictions++;
+          if (stale && scoreField(s.expect, stale, f) === true) c.staleRulePredictions++;
         }
       }
-      if (calledIt && m.firstRevisedPredictionStep === null)
-        m.firstRevisedPredictionStep = s.global_step;
+      if (calledIt && c.firstRevisedPredictionStep === null)
+        c.firstRevisedPredictionStep = s.global_step;
+      if (committed > 0 && allRight && c.firstStrictRevisedPredictionStep === null)
+        c.firstStrictRevisedPredictionStep = s.global_step;
     }
 
-    if (r.touched_original_objective) {
-      m.staleRuleActions++;
-      if (r.died) m.staleRuleDeaths++;
+    // Acting on the dead rule: the record names the original objective
+    // directly for the first change; after the swap back the surface that is
+    // lethal now is exactly the one that ended rooms 7-9, which is what a swap
+    // is, so the lethal flag is the same fact for the second.
+    if (c.index === 1 ? r.touched_original_objective : r.touched_lethal) {
+      c.staleRuleActions++;
+      if (r.died) c.staleRuleDeaths++;
     }
 
     if (
       s.contradiction &&
-      m.flaggedAtStep === null &&
-      m.firstEvidenceStep !== null &&
-      s.global_step >= m.firstEvidenceStep
+      c.flaggedAtStep === null &&
+      c.firstEvidenceStep !== null &&
+      s.global_step >= c.firstEvidenceStep
     )
-      m.flaggedAtStep = s.global_step;
+      c.flaggedAtStep = s.global_step;
 
     if (s.level_complete) {
-      if (m.postChangeCompletionStep === null) m.postChangeCompletionStep = s.global_step;
-      if (s.level >= TRANSFER_LEVEL && m.transferStep === null) m.transferStep = s.global_step;
+      if (c.postChangeCompletionStep === null) c.postChangeCompletionStep = s.global_step;
+      else if (c.transferStep === null) c.transferStep = s.global_step;
     }
 
     prevStatus = trackBeliefs(s, prevStatus, statusBeforeChange, m, true);
@@ -456,15 +541,38 @@ export function computeMetrics(steps: StepRecord[]): Metrics {
   if (m.collateralAccuracyBefore !== null && m.collateralAccuracyAfter !== null)
     m.collateralDrop = m.collateralAccuracyBefore - m.collateralAccuracyAfter;
 
-  const r1 = m.firstRevisedPredictionStep;
-  const r2 = m.postChangeCompletionStep;
-  m.recovered = r1 !== null && r2 !== null;
-  m.recoveredAtStep = m.recovered ? Math.max(r1!, r2!) : null;
-  m.transferSucceeded = m.transferStep !== null;
-
-  if (r1 !== null && m.firstEvidenceStep !== null) m.detectionDelay = r1 - m.firstEvidenceStep;
-  if (r1 !== null && m.interventionAtStep !== null)
-    m.detectionDelayFromChange = r1 - m.interventionAtStep;
+  for (const ch of m.changes) {
+    const r1 = ch.firstRevisedPredictionStep;
+    const r2 = ch.postChangeCompletionStep;
+    ch.recovered = r1 !== null && r2 !== null;
+    ch.recoveredAtStep = ch.recovered ? Math.max(r1!, r2!) : null;
+    const r1s = ch.firstStrictRevisedPredictionStep;
+    ch.recoveredStrict = r1s !== null && r2 !== null;
+    ch.recoveredStrictAtStep = ch.recoveredStrict ? Math.max(r1s!, r2!) : null;
+    ch.transferSucceeded = ch.transferStep !== null;
+    if (r1 !== null && ch.firstEvidenceStep !== null) ch.detectionDelay = r1 - ch.firstEvidenceStep;
+    if (r1 !== null) ch.detectionDelayFromChange = r1 - ch.atStep;
+  }
+  const first = m.changes[0];
+  if (first) {
+    m.firstEvidenceStep = first.firstEvidenceStep;
+    m.firstRevisedPredictionStep = first.firstRevisedPredictionStep;
+    m.firstStrictRevisedPredictionStep = first.firstStrictRevisedPredictionStep;
+    m.flaggedAtStep = first.flaggedAtStep;
+    m.detectionDelay = first.detectionDelay;
+    m.detectionDelayFromChange = first.detectionDelayFromChange;
+    m.ruleRelevantViolations = first.ruleRelevantViolations;
+    m.staleRulePredictions = first.staleRulePredictions;
+    m.staleRuleActions = first.staleRuleActions;
+    m.staleRuleDeaths = first.staleRuleDeaths;
+    m.postChangeCompletionStep = first.postChangeCompletionStep;
+    m.recovered = first.recovered;
+    m.recoveredAtStep = first.recoveredAtStep;
+    m.recoveredStrict = first.recoveredStrict;
+    m.recoveredStrictAtStep = first.recoveredStrictAtStep;
+    m.transferStep = first.transferStep;
+    m.transferSucceeded = first.transferSucceeded;
+  }
 
   m.hazardContacts = [...hazard.entries()]
     .sort((a, b) => a[0] - b[0])

@@ -246,6 +246,10 @@ export function MetricsPanel({ steps }: { steps: StepRecord[] }) {
               First revised prediction
             </dt>
             <dd>{m.firstRevisedPredictionStep ?? 'not yet'}</dd>
+            <dt title="strict R1 — first telling press on which every altered field the agent committed to was right">
+              First strictly revised prediction
+            </dt>
+            <dd>{m.firstStrictRevisedPredictionStep ?? 'not yet'}</dd>
             <dt title="R1 minus first evidence: presses spent with the evidence already in hand">
               Detection delay
             </dt>
@@ -255,8 +259,9 @@ export function MetricsPanel({ steps }: { steps: StepRecord[] }) {
             <dt title={RECOVERY_CRITERION}>Recovered</dt>
             <dd style={{ color: m.recovered ? 'var(--green)' : 'var(--gold)' }}>
               {m.recovered ? `step ${m.recoveredAtStep}` : 'not yet'}
+              {m.recoveredStrict ? ` · strict at ${m.recoveredStrictAtStep}` : ' · strict not yet'}
             </dd>
-            <dt title="the last room, finished after the change — a harder bar than recovery">
+            <dt title="a room finished after the change on a later level than the one recovery was earned in — a harder bar than recovery">
               Transfer
             </dt>
             <dd style={{ color: m.transferSucceeded ? 'var(--green)' : undefined }}>
@@ -280,6 +285,36 @@ export function MetricsPanel({ steps }: { steps: StepRecord[] }) {
             </dt>
             <dd>{m.collateralDrop === null ? '—' : `${Math.round(m.collateralDrop * 100)}pp`}</dd>
           </dl>
+          {m.changes.slice(1).map((c) => (
+            <dl className="kv" key={c.index} style={{ marginTop: 8 }}>
+              <dt style={{ color: 'var(--gold)' }}>
+                Change {c.index} · step {c.atStep} · {c.rulesAfter.swapped ? 'swapped' : 'back to original'}
+              </dt>
+              <dd />
+              <dt>First evidence</dt>
+              <dd>{c.firstEvidenceStep ?? 'not yet'}</dd>
+              <dt>First revised prediction</dt>
+              <dd>{c.firstRevisedPredictionStep ?? 'not yet'}</dd>
+              <dt>Detection delay</dt>
+              <dd>{c.detectionDelay ?? '—'}</dd>
+              <dt>Room finished after</dt>
+              <dd>{c.postChangeCompletionStep ?? 'not yet'}</dd>
+              <dt>Recovered</dt>
+              <dd style={{ color: c.recovered ? 'var(--green)' : 'var(--gold)' }}>
+                {c.recovered ? `step ${c.recoveredAtStep}` : 'not yet'}
+                {c.recoveredStrict ? ` · strict at ${c.recoveredStrictAtStep}` : ' · strict not yet'}
+              </dd>
+              <dt>Transfer</dt>
+              <dd style={{ color: c.transferSucceeded ? 'var(--green)' : undefined }}>
+                {c.transferStep ? `step ${c.transferStep}` : 'not yet'}
+              </dd>
+              <dt>Stale-rule actions</dt>
+              <dd>
+                {c.staleRuleActions}
+                {c.staleRuleDeaths ? ` (${c.staleRuleDeaths} fatal)` : ''}
+              </dd>
+            </dl>
+          ))}
           {m.demotedAfterChange.length > 0 && (
             <p className="legend">
               Demoted after the change: <b>{m.demotedAfterChange.join(', ')}</b>. Whether that

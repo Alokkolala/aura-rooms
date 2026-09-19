@@ -8,7 +8,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { LEVELS, NO_HAZARD_LEVELS } from '../src/engine/levels.ts';
+import { INTERVENTION_BEFORE_LEVEL, LEVELS, NO_HAZARD_LEVELS, swappedAt } from '../src/engine/levels.ts';
 import { solve } from '../src/engine/solver.ts';
 import { buildObservation, FORBIDDEN_TOKENS } from '../src/engine/observation.ts';
 import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory } from '../src/agent/memory.ts';
@@ -440,33 +440,48 @@ test('a branched continuation carries the memory and applies the change on entry
   assert.match(renderMemory(prefix.state.memory), /from the prefix/);
 });
 
-test('rooms 7 and 8 are finishable through the runner, in every condition', () => {
+test('every room from the first change on is finishable through the runner, in every condition', () => {
   // verify.ts proves the GRIDS are solvable. This proves the HARNESS delivers a
-  // solvable world: the change is applied on entry, the budget is enough, the
-  // room advances, and the run reaches the end. A curriculum that is solvable
-  // on paper and unreachable in practice would make every "not recovered" in
-  // the results a property of the instrument.
+  // solvable world: each change is applied on entry (and the second undone),
+  // the budget is enough, the room advances, and the run reaches the end. A
+  // curriculum that is solvable on paper and unreachable in practice would
+  // make every "not recovered" in the results a property of the instrument.
+  const postChange = LEVELS.filter((lv) => lv.id >= INTERVENTION_BEFORE_LEVEL);
   for (const condition of ['stable', 'hidden', 'notified'] as Condition[]) {
     const run = new Run(cfg({ condition, actionBudgetPerLevel: 30 }), noop);
-    (run as any).state.levelIndex = 5;
+    (run as any).state.levelIndex = INTERVENTION_BEFORE_LEVEL - 2;
     (run as any).advanceLevel(true);
-    assert.equal(run.state.levelIndex, 6, `${condition}: should be in room 7`);
+    assert.equal(run.state.levelIndex, INTERVENTION_BEFORE_LEVEL - 1, `${condition}: should be in room ${INTERVENTION_BEFORE_LEVEL}`);
 
-    for (const roomIndex of [6, 7]) {
-      const route = solve(LEVELS[roomIndex], run.state.rules);
-      assert.ok(route, `${condition}: room ${roomIndex + 1} unsolvable as the runner presents it`);
+    for (const lv of postChange) {
+      assert.equal(
+        run.state.rules.swapped,
+        condition !== 'stable' && swappedAt(lv.id),
+        `${condition}: room ${lv.id} is presented under the wrong regime`,
+      );
+      const route = solve(lv, run.state.rules);
+      assert.ok(route, `${condition}: room ${lv.id} unsolvable as the runner presents it`);
       assert.ok(
         route!.length <= run.state.config.actionBudgetPerLevel,
-        `${condition}: room ${roomIndex + 1} needs ${route!.length} presses, budget is ${run.state.config.actionBudgetPerLevel}`,
+        `${condition}: room ${lv.id} needs ${route!.length} presses, budget is ${run.state.config.actionBudgetPerLevel}`,
       );
       for (const b of route!) run.pressManual(b);
     }
     assert.equal(run.state.finished, true, `${condition}: the run should have reached the end`);
     assert.equal(run.state.deaths, 0, `${condition}: the reference route should cost no lives`);
     assert.deepEqual(
-      run.state.levelOutcomes.slice(-2).map((o) => [o.level, o.solved]),
-      [[7, true], [8, true]],
-      `${condition}: both post-change rooms should be recorded as solved`,
+      run.state.levelOutcomes.slice(-postChange.length).map((o) => [o.level, o.solved]),
+      postChange.map((lv) => [lv.id, true]),
+      `${condition}: every post-change room should be recorded as solved`,
+    );
+    const changes = run.state.feed
+      .filter((f) => f.kind === 'rule-change')
+      .map((f) => f.text)
+      .reverse();
+    assert.deepEqual(
+      changes,
+      condition === 'stable' ? [] : ['Rule change applied before room 7', 'Rule change applied before room 10'],
+      `${condition}: exactly the scheduled changes should have been applied`,
     );
   }
 });
@@ -951,6 +966,8 @@ test('resuming from any prefix of a log sends exactly the prompt the next step r
     const records = fs.readFileSync(path.join(dir, f), 'utf8').split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l));
     const start = records.find((r) => r.type === 'run_start');
     if (!start) continue;
+    // a hand-driven run sent no prompt, so there is nothing to reproduce
+    if (start.config.driver !== 'llm') continue;
     const { strategy, condition, actionBudgetPerLevel: budget } = start.config;
     for (let i = 0; i < records.length; i++) {
       if (records[i].type !== 'step') continue;

@@ -1,0 +1,472 @@
+{
+  "run_id": "gptoss20b-v4-2026-09-19T1333",
+  "engine_version": 4,
+  "provider": "openai-compatible",
+  "model": "openai/gpt-oss-20b",
+  "endpoint": "https://openrouter.ai/api/v1",
+  "config": {
+    "strategy": "structured",
+    "condition": "hidden",
+    "budget": 25
+  },
+  "resumed_after_steps": [],
+  "outcomes": [
+    {
+      "level": 1,
+      "solved": true,
+      "actions": 8,
+      "deaths": 0
+    },
+    {
+      "level": 2,
+      "solved": true,
+      "actions": 11,
+      "deaths": 0
+    },
+    {
+      "level": 3,
+      "solved": false,
+      "actions": 25,
+      "deaths": 6
+    },
+    {
+      "level": 4,
+      "solved": false,
+      "actions": 25,
+      "deaths": 0
+    },
+    {
+      "level": 5,
+      "solved": false,
+      "actions": 25,
+      "deaths": 1
+    },
+    {
+      "level": 6,
+      "solved": false,
+      "actions": 25,
+      "deaths": 0
+    },
+    {
+      "level": 7,
+      "solved": false,
+      "actions": 25,
+      "deaths": 0
+    }
+  ],
+  "metrics": {
+    "totalActions": 147,
+    "roomsSolved": 2,
+    "deaths": 7,
+    "deathsAfterChange": 0,
+    "fieldsCommitted": 524,
+    "fieldsCorrect": 453,
+    "accuracy": 0.8645038167938931,
+    "predictionViolations": 53,
+    "predictionsDeclined": 8,
+    "interventionAtStep": 120,
+    "firstEvidenceStep": null,
+    "firstRevisedPredictionStep": null,
+    "flaggedAtStep": null,
+    "detectionDelay": null,
+    "detectionDelayFromChange": null,
+    "ruleRelevantViolations": 0,
+    "staleRulePredictions": 0,
+    "staleRuleActions": 0,
+    "staleRuleDeaths": 0,
+    "postChangeCompletionStep": null,
+    "recovered": false,
+    "recoveredAtStep": null,
+    "transferStep": null,
+    "transferSucceeded": false,
+    "collateralAccuracyBefore": 0.8717339667458432,
+    "collateralAccuracyAfter": 0.9342105263157895,
+    "collateralDrop": -0.062476559569946244,
+    "statusChanges": [
+      {
+        "step": 1,
+        "id": "hyp_a_up",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 2,
+        "id": "hyp_a_up",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 2,
+        "id": "hyp_c_down",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 3,
+        "id": "hyp_c_down",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 4,
+        "id": "hyp_b_right",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 5,
+        "id": "hyp_d_left",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 6,
+        "id": "hyp_d_left",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 7,
+        "id": "hyp_b_right",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 13,
+        "id": "hyp_a_up_blocked",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 17,
+        "id": "hyp_b_right_blocked",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 18,
+        "id": "hyp_d_left_blocked",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 19,
+        "id": "hyp_d_left_concentric",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 22,
+        "id": "hyp_b_right_blocked",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 25,
+        "id": "hyp_d_left_radial",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 26,
+        "id": "hyp_d_left_radial_drop",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 27,
+        "id": "hyp_d_left_blocked_solid",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 28,
+        "id": "hyp_d_left_blocked",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 28,
+        "id": "hyp_d_left_blocked_solid",
+        "from": "hypothesis",
+        "to": "superseded"
+      },
+      {
+        "step": 30,
+        "id": "hyp_a_up_radial",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 33,
+        "id": "hyp_a_up",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 33,
+        "id": "hyp_a_radial_drop",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 35,
+        "id": "hyp_a_up",
+        "from": "suspect",
+        "to": "confirmed"
+      },
+      {
+        "step": 43,
+        "id": "hyp_c_down_blocked",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 51,
+        "id": "hyp_b_to_tile1",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 54,
+        "id": "hyp_b_to_tile1_effect",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 55,
+        "id": "hyp_d_left_tile0",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 58,
+        "id": "hyp_d_left_tile1_effect",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 68,
+        "id": "hyp_b_tile0_no_effect",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 69,
+        "id": "hyp_d_left_tile1_effect",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 71,
+        "id": "hyp_d_left_tile1_effect_roomchange",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 72,
+        "id": "hyp_d_left_tile0",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 72,
+        "id": "hyp_d_left_tile1_marker_flip",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 73,
+        "id": "hyp_a_up_radial_drop",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 74,
+        "id": "hyp_a_up",
+        "from": "confirmed",
+        "to": "superseded"
+      },
+      {
+        "step": 74,
+        "id": "hyp_a_right",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 75,
+        "id": "hyp_b_to_tile1_roomchange",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 75,
+        "id": "hyp_b_to_tile1_marker_change",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 78,
+        "id": "hyp_b_to_tile1_marker_change",
+        "from": "hypothesis",
+        "to": "superseded"
+      },
+      {
+        "step": 78,
+        "id": "hyp_b_to_tile1_marker_change_right",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 84,
+        "id": "hyp_b_to_tile1_effect",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 84,
+        "id": "hyp_b_to_tile1_roomchange",
+        "from": "hypothesis",
+        "to": "superseded"
+      },
+      {
+        "step": 98,
+        "id": "hyp_a_to_tile1_effect",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 99,
+        "id": "hyp_a_up",
+        "from": "superseded",
+        "to": "confirmed"
+      },
+      {
+        "step": 106,
+        "id": "hyp_a_right_blocked",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 109,
+        "id": "hyp_a_to_tile1_effect",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 109,
+        "id": "hyp_a_no_move_on_tile1",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 111,
+        "id": "hyp_a_tile1_room",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 114,
+        "id": "hyp_a_right",
+        "from": "confirmed",
+        "to": "superseded"
+      },
+      {
+        "step": 114,
+        "id": "hyp_a_up",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 116,
+        "id": "hyp_a_no_move_on_tile1",
+        "from": "confirmed",
+        "to": "superseded"
+      },
+      {
+        "step": 116,
+        "id": "hyp_a_move_on_tile1",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 119,
+        "id": "hyp_a_up",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 121,
+        "id": "hyp_b_right",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 123,
+        "id": "hyp_a_up",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 124,
+        "id": "hyp_b_right",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 124,
+        "id": "hyp_c_unknown",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 125,
+        "id": "hyp_c_unknown",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 138,
+        "id": "hyp_c_effect",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 143,
+        "id": "hyp_b_right_into_tile1",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 146,
+        "id": "hyp_d_left_tile1_effect",
+        "from": "confirmed",
+        "to": "superseded"
+      }
+    ],
+    "demotedAfterChange": [
+      "hyp_b_right",
+      "hyp_d_left_tile1_effect"
+    ],
+    "hazardContacts": [
+      {
+        "level": 3,
+        "presses": 6,
+        "deaths": 6
+      },
+      {
+        "level": 5,
+        "presses": 1,
+        "deaths": 1
+      }
+    ]
+  },
+  "invalid_replies": 2,
+  "tool_use_alarms": 0,
+  "seal_broken": false,
+  "usage": {
+    "input": 267496,
+    "output": 354143,
+    "calls": 149
+  }
+}

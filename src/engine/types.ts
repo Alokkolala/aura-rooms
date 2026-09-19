@@ -118,8 +118,13 @@ export const DELTA: ReadonlyArray<readonly [number, number]> = [
  *     in 5, and only rooms 7-8 need to work under both rule sets. The reported
  *     outcome of a press is now purely observational: no field names a cause.
  *     See runs/archive-engine-v3/.
+ * v5: three rooms added after 8 and a SECOND scheduled change before room 10
+ *     that undoes the first, so the last two rooms are played under the
+ *     original rules again. Rooms 1-8 and the first change are untouched, so
+ *     v4 recordings replay exactly on v5 and stay in runs/; only their
+ *     `engine_version` says which curriculum they were made on.
  */
-export const ENGINE_VERSION = 4;
+export const ENGINE_VERSION = 5;
 
 /** Hard cap on automatic effect resolution so the engine can never hang. */
 export const MAX_EFFECT_ITERATIONS = 64;

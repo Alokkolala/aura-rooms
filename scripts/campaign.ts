@@ -41,8 +41,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { CHANGED_RULES, DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
-import { INTERVENTION_BEFORE_LEVEL, LEVELS } from '../src/engine/levels.ts';
+import { DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
+import { INTERVENTIONS_BEFORE_LEVELS, LEVELS, swappedAt } from '../src/engine/levels.ts';
 import {
   buildObservation,
   lastActionOf,
@@ -129,8 +129,8 @@ export function fresh(strategy: StrategyName, condition: Condition, budget: numb
  *
  * Only what the runner itself would have held: the world, the memory store
  * exactly as accepted, the last press as the agent will be shown it, and the
- * echo of what it committed to. The one thing that cannot be recovered is
- * usage spent on calls that produced no reply, which was never recorded.
+ * echo of what it committed to. Usage spent on a rejected reply is recovered
+ * only from logs that recorded the call on it; earlier logs did not.
  */
 export function hydrate(records: any[], strategy: StrategyName, condition: Condition, budget: number): State {
   const s = fresh(strategy, condition, budget);
@@ -141,9 +141,13 @@ export function hydrate(records: any[], strategy: StrategyName, condition: Condi
   s.rules = { ...last.researcher.true_rules };
   for (const r of records) {
     if (r.type === 'step') {
-      s.records.push(r); s.usage.calls++; s.usage.input += r.call.usage.input; s.usage.output += r.call.usage.output;
-    } else if (r.type === 'invalid_reply') s.invalid++;
-    else if (r.type === 'seal_alarm') s.toolUseAlarms++;
+      // a hand-driven run records no call on its presses
+      s.records.push(r);
+      if (r.call) { s.usage.calls++; s.usage.input += r.call.usage.input; s.usage.output += r.call.usage.output; }
+    } else if (r.type === 'invalid_reply') {
+      s.invalid++;
+      if (r.call) { s.usage.calls++; s.usage.input += r.call.usage.input; s.usage.output += r.call.usage.output; }
+    } else if (r.type === 'seal_alarm') s.toolUseAlarms++;
     else if (r.type === 'intervention') { s.interventionAt = r.at_global_step; s.rules = { ...r.rules_after }; }
   }
   const deathsIn = (level: number) => steps.filter((t) => t.level === level && t.researcher.died).length;
@@ -169,11 +173,13 @@ export function hydrate(records: any[], strategy: StrategyName, condition: Condi
     };
     s.levelIndex++; s.levelStep = 0; s.roomDeaths = 0; s.lastAction = null;
     if (s.levelIndex < LEVELS.length) s.entity = { ...LEVELS[s.levelIndex].start };
-    // The runner applies the swap in the same synchronous stretch as the press
-    // that ended room 6, so a log cannot end between the two. If it somehow
-    // has, refuse rather than guess which rules are in force.
-    if (condition !== 'stable' && s.levelIndex + 1 === INTERVENTION_BEFORE_LEVEL && s.interventionAt === null)
-      throw new Error('log ends on entry to the intervention room without an intervention record');
+    // The runner applies a swap in the same synchronous stretch as the press
+    // that ended the room before it, so a log cannot end between the two. If
+    // it somehow has, refuse rather than guess which rules are in force.
+    const due = s.levelIndex + 1;
+    if (condition !== 'stable' && INTERVENTIONS_BEFORE_LEVELS.includes(due) &&
+        !records.some((r) => r.type === 'intervention' && r.before_level === due))
+      throw new Error(`log ends on entry to room ${due} without the intervention record due there`);
   }
   // A rejected reply after the last press leaves its error for the next prompt
   // and clears the memory notice, exactly as the loop below does.
@@ -186,7 +192,7 @@ export function hydrate(records: any[], strategy: StrategyName, condition: Condi
 export function promptFor(s: State) {
   const level = LEVELS[s.levelIndex];
   const notice =
-    s.condition === 'notified' && s.levelIndex + 1 === INTERVENTION_BEFORE_LEVEL && s.levelStep === 0
+    s.condition === 'notified' && INTERVENTIONS_BEFORE_LEVELS.includes(s.levelIndex + 1) && s.levelStep === 0
       ? CHANGE_NOTICE
       : undefined;
   const obs = buildObservation({
@@ -240,18 +246,24 @@ async function main() {
     write({
       type: 'run_start', at: new Date().toISOString(), engine_version: ENGINE_VERSION,
       config: { runId: RUN_ID, strategy: STRATEGY, condition: CONDITION, driver: 'llm', actionBudgetPerLevel: BUDGET, seed: 0 },
+      curriculum: { rooms: LEVELS.length, interventions_before_levels: INTERVENTIONS_BEFORE_LEVELS },
       provider: P.provider, model: P.model, endpoint: P.endpoint, effort: P.effort,
       system_prompt: system,
     });
   }
 
+  // Each scheduled change toggles the regime, and the regime a room is due to
+  // be played under is a function of the room alone — so this is idempotent
+  // and a resumed run cannot apply a change twice or skip one.
   const intervene = () => {
-    if (s.condition === 'stable' || s.interventionAt !== null) return;
-    if (s.levelIndex + 1 !== INTERVENTION_BEFORE_LEVEL) return;
-    s.rules = { ...CHANGED_RULES };
-    s.interventionAt = s.globalStep;
-    console.log(`\n  *** RULE CHANGED on entering room ${INTERVENTION_BEFORE_LEVEL} ***\n`);
-    write({ type: 'intervention', at_global_step: s.globalStep, before_level: INTERVENTION_BEFORE_LEVEL, rules_after: s.rules });
+    if (s.condition === 'stable') return;
+    const level = s.levelIndex + 1;
+    const swapped = swappedAt(level);
+    if (s.rules.swapped === swapped) return;
+    s.rules = { swapped };
+    s.interventionAt ??= s.globalStep;
+    console.log(`\n  *** RULES ${swapped ? 'SWAPPED' : 'SWAPPED BACK'} on entering room ${level} ***\n`);
+    write({ type: 'intervention', at_global_step: s.globalStep, before_level: level, rules_after: s.rules });
   };
 
   while (s.levelIndex < Math.min(MAX_ROOMS, LEVELS.length)) {
@@ -263,7 +275,11 @@ async function main() {
     let reply: ProviderReply | null = null;
     for (let attempt = 1; attempt <= RETRIES + 1 && !reply; attempt++) {
       try {
-        reply = await ask(system, user, { maxTokens: 4000 });
+        // No explicit cap: the browser runner sends none either, so both get
+        // the adapter's default. A lower cap here once truncated a reasoning
+        // model's reply mid-JSON (its thinking counts against max_tokens), and
+        // the rejection looked like the subject's fault.
+        reply = await ask(system, user);
       } catch (e: any) {
         console.error(`\nprovider error at step ${s.globalStep + 1}, attempt ${attempt}: ${e.message}`);
         write({ type: 'provider_error', global_step: s.globalStep, attempt, error: String(e.message) });
@@ -285,21 +301,22 @@ async function main() {
     }
     s.memoryRejected = null; s.lastInvalid = null;
 
+    // A rejected reply records the call too: a reply cut off by the token cap
+    // (stop_reason 'length') and a reply that was simply malformed are
+    // different facts about the subject, and the raw text alone cannot tell them apart.
+    const reject = (error: string) => {
+      s.invalid++; s.lastInvalid = error;
+      write({
+        type: 'invalid_reply', global_step: s.globalStep, error, raw: reply!.text.slice(0, 4000),
+        call: { model: reply!.model, latency_ms: reply!.latencyMs, stop_reason: reply!.stopReason, usage: reply!.usage },
+      });
+      console.log(`  step ${s.globalStep + 1}: REJECTED (${error}; stop_reason=${reply!.stopReason}) — no press`);
+    };
     let parsed: unknown;
     try { parsed = extractJson(reply.text); }
-    catch (e: any) {
-      s.invalid++; s.lastInvalid = String(e.message);
-      write({ type: 'invalid_reply', global_step: s.globalStep, error: s.lastInvalid, raw: reply.text.slice(0, 4000) });
-      console.log(`  step ${s.globalStep + 1}: REJECTED (${s.lastInvalid}) — no press`);
-      continue;
-    }
+    catch (e: any) { reject(String(e.message)); continue; }
     const v = validate(parsed, STRATEGY);
-    if (!v.ok) {
-      s.invalid++; s.lastInvalid = v.error;
-      write({ type: 'invalid_reply', global_step: s.globalStep, error: v.error, raw: reply.text.slice(0, 4000) });
-      console.log(`  step ${s.globalStep + 1}: REJECTED (${v.error}) — no press`);
-      continue;
-    }
+    if (!v.ok) { reject(v.error); continue; }
 
     const applied = applyMemory(s.memory, v.reply.memory);
     s.memoryRejected = applied.rejected;
@@ -406,15 +423,21 @@ async function main() {
   if (m.interventionAtStep !== null) {
     console.log(`change at      step ${m.interventionAtStep}`);
     console.log(`first evidence ${m.firstEvidenceStep ?? 'never'}`);
-    console.log(`R1 revised     ${m.firstRevisedPredictionStep ?? 'NEVER'}   (delay after evidence: ${m.detectionDelay ?? '—'})`);
+    console.log(`R1 revised     ${m.firstRevisedPredictionStep ?? 'NEVER'}   (delay after evidence: ${m.detectionDelay ?? '—'})   strict ${m.firstStrictRevisedPredictionStep ?? 'NEVER'}`);
     console.log(`R2 room after  ${m.postChangeCompletionStep ?? 'NEVER'}`);
-    console.log(`RECOVERED      ${m.recovered ? `step ${m.recoveredAtStep}` : 'NO'}`);
+    console.log(`RECOVERED      ${m.recovered ? `step ${m.recoveredAtStep}` : 'NO'}   strict ${m.recoveredStrict ? `step ${m.recoveredStrictAtStep}` : 'NO'}`);
     console.log(`transfer       ${m.transferStep === null ? 'NO' : `step ${m.transferStep}`}`);
     console.log(`stale rule     ${m.staleRulePredictions} predictions, ${m.staleRuleActions} actions (${m.staleRuleDeaths} fatal)`);
     console.log(`violations     ${m.ruleRelevantViolations} on altered fields, ${m.predictionViolations} presses overall`);
     if (m.collateralDrop !== null)
       console.log(`collateral     ${(m.collateralDrop * 100).toFixed(0)}pp accuracy drop on fields the change did not touch`);
     if (m.demotedAfterChange.length) console.log(`demoted after  ${m.demotedAfterChange.join(', ')}`);
+    for (const c of m.changes.slice(1)) {
+      console.log(`--- change ${c.index} (step ${c.atStep}, ${c.rulesAfter.swapped ? 'swapped' : 'back to original'})`);
+      console.log(`first evidence ${c.firstEvidenceStep ?? 'never'}   R1 ${c.firstRevisedPredictionStep ?? 'NEVER'} (delay ${c.detectionDelay ?? '—'})   strict R1 ${c.firstStrictRevisedPredictionStep ?? 'NEVER'}   R2 ${c.postChangeCompletionStep ?? 'NEVER'}`);
+      console.log(`RECOVERED      ${c.recovered ? `step ${c.recoveredAtStep}` : 'NO'}   strict ${c.recoveredStrict ? `step ${c.recoveredStrictAtStep}` : 'NO'}   transfer ${c.transferStep ?? 'NO'}   deaths ${c.deaths}`);
+      console.log(`stale rule     ${c.staleRulePredictions} predictions, ${c.staleRuleActions} actions (${c.staleRuleDeaths} fatal)`);
+    }
   }
   console.log(`invalid        ${s.invalid}`);
   // Only a leaky item breaks the seal. The first summary printed SEAL BROKEN

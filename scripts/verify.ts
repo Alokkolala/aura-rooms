@@ -10,11 +10,14 @@ import assert from 'node:assert/strict';
 
 import { CHANGED_RULES, DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
 import {
+  DEFLECTOR_CARRIES_ON_REFERENCE,
   DUAL_REGIME_LEVELS,
   FIRST_INTRODUCED,
   INTERVENTION_BEFORE_LEVEL,
+  INTERVENTIONS_BEFORE_LEVELS,
   LEVELS,
   NO_HAZARD_LEVELS,
+  swappedAt,
 } from '../src/engine/levels.ts';
 import { canReach, solve } from '../src/engine/solver.ts';
 import { auditForLeaks, buildObservation, lastActionOf } from '../src/engine/observation.ts';
@@ -184,11 +187,16 @@ test('each mechanic is introduced where the curriculum says, and not before', ()
   );
 });
 
-test('rooms 7 and 8 are solvable under both regimes, and no two rooms share a solution', () => {
+test('every room from the first change on is solvable under both regimes, and no two rooms share a solution', () => {
   // The post-change rooms carry the stable arm as well as the changed ones, so
   // both have to work. And no two rooms may be finishable by the same button
   // string: room 2 originally replayed room 1's AABB exactly, which let an
   // agent finish by repeating a sequence instead of by believing anything.
+  assert.deepEqual(
+    DUAL_REGIME_LEVELS,
+    LEVELS.filter((lv) => lv.id >= INTERVENTION_BEFORE_LEVEL).map((lv) => lv.id),
+    'every room played after the first change must be declared dual-regime',
+  );
   for (const id of DUAL_REGIME_LEVELS) {
     const lv = LEVELS[id - 1];
     for (const [label, rules] of [['original', DEFAULT_RULES], ['changed', CHANGED_RULES]] as const)
@@ -207,36 +215,72 @@ test('rooms 7 and 8 are solvable under both regimes, and no two rooms share a so
   }
 });
 
-test('the intervention room makes the learned route fatal and the feared route right', () => {
+test('each intervention room makes the learned route fatal and the feared route right', () => {
   // The sharpest claim in the curriculum, and the easiest to break by editing a
-  // grid. An agent arriving at room 7 with the original rule intact heads for
-  // the surface it has spent six rooms learning to want. That has to kill it,
+  // grid. An agent arriving at an intervention room with the previous rule
+  // intact heads for the surface it has learned to want. That has to kill it,
   // and the other route has to be the answer — otherwise the room is merely
   // confusing rather than contradictory, and a null result there would mean
-  // nothing.
-  const lv = LEVELS[INTERVENTION_BEFORE_LEVEL - 1];
-  const oldRoute = solve(lv, DEFAULT_RULES);
-  const newRoute = solve(lv, CHANGED_RULES);
-  assert.ok(oldRoute && newRoute, 'room 7 must be solvable under both rule sets');
+  // nothing. The second change is the first one undone, so "before" and
+  // "after" trade places for it; the claim is the same.
+  for (const id of INTERVENTIONS_BEFORE_LEVELS) {
+    const lv = LEVELS[id - 1];
+    const before = swappedAt(id) ? DEFAULT_RULES : CHANGED_RULES;
+    const after = swappedAt(id) ? CHANGED_RULES : DEFAULT_RULES;
+    const oldRoute = solve(lv, before);
+    const newRoute = solve(lv, after);
+    assert.ok(oldRoute && newRoute, `room ${id} must be solvable under both rule sets`);
 
-  assert.equal(
-    replay(lv, oldRoute!, CHANGED_RULES).died,
-    true,
-    'the route learned before the change must be fatal after it',
-  );
-  assert.equal(
-    replay(lv, newRoute!, CHANGED_RULES).solved,
-    true,
-    'and the route that is correct after the change must actually finish the room',
-  );
-  assert.equal(
-    replay(lv, newRoute!, DEFAULT_RULES).died,
-    true,
-    'the post-change answer must be exactly what the agent learned to avoid',
-  );
-  assert.ok(
-    newRoute!.length < oldRoute!.length,
-    'the post-change answer should also be the shorter route, so failing to revise costs more than it saves',
+    assert.equal(
+      replay(lv, oldRoute!, after).died,
+      true,
+      `room ${id}: the route learned before the change must be fatal after it`,
+    );
+    assert.equal(
+      replay(lv, newRoute!, after).solved,
+      true,
+      `room ${id}: the route that is correct after the change must actually finish the room`,
+    );
+    assert.equal(
+      replay(lv, newRoute!, before).died,
+      true,
+      `room ${id}: the post-change answer must be exactly what the agent learned to avoid`,
+    );
+    assert.ok(
+      newRoute!.length < oldRoute!.length,
+      `room ${id}: the post-change answer should also be the shorter route, so failing to revise costs more than it saves`,
+    );
+  }
+});
+
+test('the deflector carries the entity on the reference route of every room that claims it', () => {
+  // E17: a room can require '/' merely as a cell to stand on. The rooms in
+  // this list claim more — that the reference solution is DEFLECTED at least
+  // once, under the regime the room is played in — and any room requiring '/'
+  // that is not in the list is on record as not demonstrating the mechanic.
+  for (const id of DEFLECTOR_CARRIES_ON_REFERENCE) {
+    const lv = LEVELS[id - 1];
+    const rules = swappedAt(id) ? CHANGED_RULES : DEFAULT_RULES;
+    const route = solve(lv, rules)!;
+    let st: EntityState = { ...lv.start };
+    let carried = 0;
+    for (const b of route) {
+      const r = step(lv, st, b, rules);
+      carried += r.autoMoved;
+      st = r.state;
+    }
+    assert.ok(carried > 0, `room ${id} claims the deflector carries on its reference route, but it never does`);
+  }
+});
+
+test('the scheduled changes alternate, and the second undoes the first', () => {
+  // The return is the point of rooms 10-11: they are played under the ORIGINAL
+  // rules by every arm, so anything the changed arms do differently there is
+  // what they carried out of rooms 7-9, not the room.
+  assert.deepEqual(INTERVENTIONS_BEFORE_LEVELS, [7, 10]);
+  assert.deepEqual(
+    LEVELS.map((lv) => swappedAt(lv.id)),
+    [false, false, false, false, false, false, true, true, true, false, false],
   );
 });
 
@@ -455,9 +499,10 @@ test('reference path lengths', () => {
     const a = solve(lv, DEFAULT_RULES);
     const b = BOTH_REGIMES.has(lv.id) ? solve(lv, CHANGED_RULES) : null;
     rows.push(
-      `  level ${lv.id} (${lv.w}x${lv.h}) ${lv.name.padEnd(16)} ` +
+      `  level ${String(lv.id).padStart(2)} (${lv.w}x${lv.h}) ${lv.name.padEnd(17)} ` +
         `original ${String(a?.length).padStart(2)} [${a?.join('')}]` +
-        (b ? `   after change ${String(b.length).padStart(2)} [${b.join('')}]` : ''),
+        (b ? `   swapped ${String(b.length).padStart(2)} [${b.join('')}]` : '') +
+        (BOTH_REGIMES.has(lv.id) ? `   played ${swappedAt(lv.id) ? 'swapped' : 'original'}` : ''),
     );
   }
   console.log('\n' + rows.join('\n') + '\n');

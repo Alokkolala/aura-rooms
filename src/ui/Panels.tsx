@@ -2,7 +2,7 @@ import { PAL } from './sprites.ts';
 import type { Memory } from '../agent/memory.ts';
 import type { Button } from '../engine/types.ts';
 import type { FeedItem, RunState } from '../runner.ts';
-import { INTERVENTION_BEFORE_LEVEL } from '../engine/levels.ts';
+import { INTERVENTIONS_BEFORE_LEVELS } from '../engine/levels.ts';
 
 export function ButtonPad({
   onPress,
@@ -195,7 +195,7 @@ export function ResearcherPanel({
           <h2 style={{ marginTop: 12 }}>Change timeline</h2>
           <dl className="kv">
             <dt>Scheduled</dt>
-            <dd>{s.config.condition === 'stable' ? 'none' : `before room ${INTERVENTION_BEFORE_LEVEL}`}</dd>
+            <dd>{s.config.condition === 'stable' ? 'none' : `before rooms ${INTERVENTIONS_BEFORE_LEVELS.join(' and ')}`}</dd>
             <dt>Applied at step</dt>
             <dd>{s.interventionAtStep ?? '—'}</dd>
             <dt>First telling action</dt>

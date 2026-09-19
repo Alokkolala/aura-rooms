@@ -1163,3 +1163,218 @@ the user's call to invalidate the first v4 recording.
 5. Only then repeats: at ≈1.6M tokens per codex run, an API subject is the
    realistic route to n>1, with the pooling caveat stated.
 6. A→B→A return, and E7's echo effect, both still unreproduced on v4.
+
+---
+
+## 2026-09-19 — E18. Two more v4 runs: the budget is a mechanism, and a subject with no model to revise
+
+Two headless campaigns on engine v4, same protocol as E17 except where said.
+Both logs are in `runs/` and replay exactly.
+
+| | `codex-v4-b100-2026-09-19T1413` | `gptoss20b-v4-2026-09-19T1333` |
+|---|---|---|
+| subject | codex exec · gpt-5.6-luna | openrouter.ai · openai/gpt-oss-20b |
+| arm | structured / hidden / **budget 100** | structured / hidden / budget 25 |
+| rooms solved | 8/8 | 2/8 (rooms 3–7 lost on budget) |
+| presses / deaths | 144 / 4 (1 after the change) | 157 / 7 (0 after) |
+| per room (presses†deaths) | 8 · 4 · 72†3 · 5 · 9 · 21 · 15†1 · 10 | 8 · 11 · 25†6 · 25 · 25†1 · 25 · 25 · 13 (stopped) |
+| field accuracy | 83% (467/565) | 86% (485/556) |
+| first evidence / R1 / strict R1 / R2 | 130 / 134 / 144 / 134 | never / — / — / — |
+| recovered (loose · strict) | step 134 · step 144 | no |
+| transfer | step 144 | no |
+| stale rule | 3 predictions, 1 action (fatal) | 0 (nothing to be stale about) |
+| invalid replies | 1 (invented status `contradicted`) | 2 (one cut at 8000 tokens, one empty) |
+| median / max output tokens per press | 681 / 1258 | 2152 / 5883 |
+| seal | intact (one non-leaky `error` item, as in E17) | n/a |
+
+The gpt-oss log is **incomplete**: a network drop ended it at room 8 press 3
+(`provider_error` ×3), it was resumed (`run_resume` at 147) and stopped by
+hand at press 13 of 25 once the pattern was beyond doubt. Its `summary.json`
+predates the resume. Nothing after the change depends on the missing presses:
+no discriminating press was ever made.
+
+### The codex run, budget 100
+
+`[measured]` **Recovered and transferred.** Walked the 11-press route to the
+rings in room 7, was sent back (130), and on the very next reply demoted
+`goal_concentric` in place — *"entering a concentric tile returns the entity
+to the room's starting position"* — and set off for the radial. R1 at 134 was
+the press onto the radial: `end_position` and `returned_to_start` both called
+for the new rule, `room_changed` still predicted false ("may lead onward"). So
+it called the surface *safe* before it called it the *goal*; strict R1 (every
+committed altered field right, E17's pre-registration for this run) only
+lands at 144, entering room 8's radial. Room 8 was ten presses, ten hits,
+straight past the rings.
+
+`[measured]` **The budget is part of the exploration mechanism, not just a
+cost ceiling.** Room 3 took 72 presses (E17, budget 25: 20). Sixty of them
+were a `C D B` shuffle along the bottom row after the second death, thirteen
+presses of C predicting "up" and being blocked, the belief never written as
+refuted. It got out by testing A in the *other* column, not by avoiding the
+radial. Room 6, lost on budget in E17, was solved here in 21 presses with
+twenty straight hits. n=1 each way, but the direction is consistent: the
+countdown broke the loop in room 3 and lost room 6.
+
+`[measured]` **Memory is goals and routes, not physics.** Final store: four
+button claims, `goal_concentric` (suspect), and `room4_route`, `room5_route`,
+`room6_route`, `room7_route`, `room8_route`. The radial is named in no claim
+after three deaths on it; the deflector surprised it once (s96, predicted
+(1,1), landed (2,1), called it "the diagonal tile") and was never recorded.
+E17's run *did* write `radial5: relocates the entity to the room start` — the
+same subject's memory style varies run to run.
+
+`[measured]` **Attribution follows expectation.** The observation after a
+death is the same shape every time: `after` = start, `came_from` = the cell it
+was thrown from. In room 3 (s14, s17, s78) it was read as "A moved me
+*down*" and the *buttons* were doubted — the reply refused at 18 tried to
+mark `btn_a_up` as `contradicted`. In room 7 (s130) the identical shape was
+read as "the tile sent me back". The difference was whether it held a
+confident belief about the tile: with one, the tile gets the blame; without
+one, the button does.
+
+`[measured]` **A refutation filed as support.** After the second death in
+room 3, `room3_layout` — "the central column through (2,2) is traversable
+toward the concentric tile" — was `confirmed` with `supported_by: [14, 17]`:
+the two presses that were sent back from (2,2).
+
+`[derived]` **Revision by elimination.** After room 7 the radial is the only
+other marked surface, so "not the rings, therefore the radial" is
+indistinguishable in this curriculum from "the two traded places". The
+transfer in room 8 is consistent with both. This is the hole E19 is built to
+close.
+
+### The gpt-oss-20b run
+
+`[measured]` **No world model reached the change.** Every claim it ever
+wrote has a button as its subject; it factors the world as (button × surface)
+pairs — `hyp_d_left_radial`, `hyp_a_up_radial`, `hyp_d_left_concentric` — so
+a death entered from below taught nothing about a death entered from the
+left. Two rooms ended on the rings and it predicted `room_changed: false`
+stepping onto them both times. After the change it made zero discriminating
+presses in 50: it never touched either surface, so the instrument has nothing
+to say about revision for this subject, and that absence is the result.
+
+`[measured]` **A gravity model, held for four deaths.** After the first death
+in room 3: *"if D moves onto a radial tile, the entity descends to the lowest
+non-solid tile in that column"*. Rooms 3 and 4 cannot refute it — start,
+radial and rings share a column, so "sent to the start" and "dropped to the
+floor" predict the same cell. It re-tested the drop deliberately three times
+(s36, s38, s42), predicting the end position correctly each time, and lost the
+room to its own experiments. Room 5 refuted it at s73 (sent to (5,4), gravity
+said (4,4)); the claim stayed `hypothesis` with `supported_by: [37]`.
+
+`[measured]` **Told to write shorter, it discarded.** Memory sat at
+5900/6000 characters, the s105 update was rejected for size (the harness
+rejects rather than trims, and says so), and the next two updates cut 25
+entries to 10 and then 3 — every surface claim gone. It entered room 7 with
+four button claims. `[assumption]` A 20b model cannot compress a store it
+built one claim at a time; the budget interacts with that, and the reject-not-
+trim policy is still right, because trimming would have hidden it.
+
+`[measured]` Spurious structure: `confirmed` claims that pressing D onto the
+`,` floor "flips the marker to left" — the marker is the direction of travel,
+so every such claim is trivially true and explains nothing. The cosmetic
+floor variants did exactly what they were planted to do.
+
+### Instrument
+
+`[measured]` **The headless runner capped output at 4000 tokens; the browser
+sent no cap (adapter default 8000).** A reasoning model's thinking counts
+against `max_tokens`; the first attempt's fourth reply was cut mid-JSON at 244
+characters and scored as the subject's malformed reply. Fixed before the
+recorded run: the campaign sends no cap either. The doc comment claiming the
+two send "exactly" the same thing was false on this one parameter.
+
+`[measured]` `invalid_reply` records now carry `call` (model, latency,
+`stop_reason`, usage) in both runners, so a reply the provider cut off
+(`length`) is distinguishable from one the subject malformed (`stop`); the
+gpt-oss run's two rejections are one of each. `hydrate` counts that usage on
+resume and tolerates hand-driven logs, whose presses have no call.
+
+`[derived]` Rooms 3 and 4 cannot separate "returned to start" from "dropped
+to the column floor"; room 5 is the first that can. Not a defect — the
+curriculum never claimed to teach the start cell — but the gravity story is
+now a known attractor for a subject that reasons from one data point.
+
+---
+
+## 2026-09-19 — E19. Engine v5: three rooms and a return, written down before the run
+
+### Why
+
+E18 leaves three things the eight-room curriculum cannot ask:
+
+1. After room 7 the radial is the only other marked surface, so a subject
+   that revised "rings end the room" and a subject that merely tried the
+   other tile behave identically through room 8. **Rooms 9–11 have to make
+   the revised belief do work** — as a plan, and then again in reverse.
+2. **A→B→A** has been on the list since E17. If the first revision was an
+   idea ("those two can trade places") the second should be cheaper; if it
+   was an overwrite, the second costs the same. Only a return can tell.
+3. E17 showed rooms 6 and 8 never actually deflect on their reference route.
+   A room where the deflector carries, in an orientation not seen before, is
+   the transfer test the README always claimed room 8 was.
+
+### The rooms
+
+Rooms 1–8 and the first change are untouched, so every v4 log replays on v5
+and stays in `runs/`. `ENGINE_VERSION` is 5 because the curriculum a log was
+made on must be legible from its header, and `run_start` now also records
+`curriculum: { rooms, interventions_before_levels }`.
+
+| # | room | played | reference (played regime) | the other regime | measures |
+|---|---|---|---|---|---|
+| 9 | in the way | swapped | 8 `BBAAAADD` | 2 `AA` | the rings sit on the direct climb to the radial; the loop round either side is the only safe route. **A stale-rule death here = the revised belief was not used for planning.** |
+| — | *rules swap back* | | | | |
+| 10 | the return | original | 7 `DDDAABB` | 13 `BBBAAAADDDDDD` | room 7's contradiction, other way round, different map and button string: the surface it now wants is at the end of the long route and kills; the one it learned to avoid is up a short dead-end and wins. **Delay of the second revision vs the first.** |
+| 11 | transfer II | original | 8 `CCCDDDDD` | 3 `CCD` | rings only reachable by being deflected *left* off a descent (room 5 deflected *right* off a climb); the radial one press off the column on the way, three presses in. **Strict transfer of the re-revised rule, plus whether the deflection is predicted.** |
+
+`[measured]` `npm run check`: 79 checks. New ones: every room from 7 on is
+dual-regime and the declared list matches; **both** intervention rooms make
+the previously learned route fatal and the previously feared route the
+shorter answer (the room-7 replay assertions, now run for room 10 with
+"before" and "after" traded); `swappedAt` is `oooooo SSS oo`; the deflector
+carries at least once on the reference route of every room in
+`DEFLECTOR_CARRIES_ON_REFERENCE = [5, 11]` (rooms 6 and 8 are deliberately
+not in it — E17's finding stands and is now declared rather than implied);
+the runner applies exactly `[7 → swapped, 10 → original]` in every changed
+condition and nothing in `stable`.
+
+### Metrics
+
+- **Per-change scoring.** `computeMetrics` now segments presses by the rules
+  in force and reports `changes[k]` — evidence, R1, strict R1, R2, recovery,
+  transfer, stale counts, deaths — for each scheduled change. The top-level
+  fields are `changes[0]`, and the three v4 logs recompute to byte-identical
+  numbers (checked field by field against their recorded summaries).
+- **Strict R1, pre-registered** (E17's "middle" definition): every altered
+  field the agent committed to on a telling press must be right. Rescored on
+  v4: E17's run 90 → 114, the b100 run 134 → 144. `recoveredStrict` is the
+  headline from this run on; the loose form is kept for comparison.
+- **Transfer** is now "a room finished after the change on a later level than
+  the one R2 was earned in", which on eight rooms is exactly the old "finished
+  room 8 after recovering in 7" and on eleven gives each change its own.
+- **Stale-rule action** for the second change is a press onto the surface
+  that is lethal under the rules in force — which after a swap back is the
+  radial, the surface that ended rooms 7–9. For the first change it is the
+  recorded `touched_original_objective`, as before.
+
+### Pre-registered expectations for the first v5 run (codex · gpt-5.6-luna, structured, hidden, budget 100)
+
+`[assumption]` Written before the run; each is falsifiable by one number.
+
+- **Room 9.** The E18 subject left room 8 holding *"entering a concentric
+  tile returns the entity to the start"* as `suspect`. If that belief is used
+  for planning it takes the 8-press loop with 0 stale-rule deaths. One death
+  on the rings at (3,3) falsifies that and says the revision was goal-only.
+- **Room 10.** Change-2 detection delay (strict) ≤ change-1's would support
+  "an idea"; ≥ would support "an overwrite". Also watched: whether the memory
+  write after the first return death names *both* surfaces, or just re-aims.
+- **Room 11.** Strict transfer requires predicting the radial at (6,3) as
+  lethal (or avoiding it) and the rings as the goal. Separately, the C press
+  from (7,3) is the first deflection this subject has been asked to predict
+  since room 5; a correct `end_position` (6,4) with no deflector claim in
+  memory would mean the mechanic lives in the prompt's reasoning, not the
+  store.
+- **Budget.** 100 again, so the numbers pool with E18's codex run and not
+  with E17's. A second 60-press loop somewhere is expected, not a defect.

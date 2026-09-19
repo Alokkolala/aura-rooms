@@ -1,5 +1,5 @@
 import { CHANGED_RULES, DEFAULT_RULES, goalGlyph, lethalGlyph, step } from './engine/engine.ts';
-import { INTERVENTION_BEFORE_LEVEL, LEVELS } from './engine/levels.ts';
+import { INTERVENTIONS_BEFORE_LEVELS, LEVELS, swappedAt } from './engine/levels.ts';
 import { buildObservation, lastActionOf, type LastAction, type Observation, type PreviousRoom } from './engine/observation.ts';
 import { ENGINE_VERSION, type Button, type EntityState, type Rules } from './engine/types.ts';
 import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } from './agent/memory.ts';
@@ -187,6 +187,7 @@ export class Run {
       at: new Date().toISOString(),
       config,
       engine_version: ENGINE_VERSION,
+      curriculum: { rooms: LEVELS.length, interventions_before_levels: INTERVENTIONS_BEFORE_LEVELS },
       resumed_from: resume ? { level_index: resume.levelIndex, from_run: resume.fromRunId } : null,
       // Logged in full and once. Together with each step's prompt_user this
       // makes the exact request the model answered reconstructible from the
@@ -244,7 +245,7 @@ export class Run {
     const s = this.state;
     const notice =
       s.config.condition === 'notified' &&
-      s.levelIndex + 1 === INTERVENTION_BEFORE_LEVEL &&
+      INTERVENTIONS_BEFORE_LEVELS.includes(s.levelIndex + 1) &&
       s.levelStep === 0
         ? CHANGE_NOTICE
         : undefined;
@@ -260,23 +261,32 @@ export class Run {
     });
   }
 
-  /** Apply the scheduled hidden change, if this run has one and it is due. */
+  /**
+   * Apply a scheduled hidden change, if this run has them and one is due.
+   *
+   * The regime a room is played under is a function of the room alone (each
+   * change toggles it), so this only acts when the rules in force differ from
+   * the ones due — idempotent, and a run resumed at any room gets exactly the
+   * changes a continuous run would have applied on the way there.
+   */
   private maybeIntervene() {
     const s = this.state;
-    if (s.config.condition === 'stable' || s.interventionAtStep !== null) return;
-    if (s.levelIndex + 1 !== INTERVENTION_BEFORE_LEVEL) return;
-    s.rules = { ...CHANGED_RULES };
-    s.interventionAtStep = s.globalStep;
+    if (s.config.condition === 'stable') return;
+    const level = s.levelIndex + 1;
+    const swapped = swappedAt(level);
+    if (s.rules.swapped === swapped) return;
+    s.rules = { swapped };
+    if (s.interventionAtStep === null) s.interventionAtStep = s.globalStep;
     this.push({
       kind: 'rule-change',
-      text: `Rule change applied before room ${INTERVENTION_BEFORE_LEVEL}`,
-      detail: 'the two marked surfaces have traded meanings',
+      text: `Rule change applied before room ${level}`,
+      detail: swapped ? 'the two marked surfaces have traded meanings' : 'the two marked surfaces have traded back',
       researcherOnly: true,
     });
     this.log({
       type: 'intervention',
       at_global_step: s.globalStep,
-      before_level: INTERVENTION_BEFORE_LEVEL,
+      before_level: level,
       rules_after: s.rules,
     });
   }
@@ -621,12 +631,22 @@ export class Run {
       this.lastCall.error = error;
     }
     this.push({ kind: 'error', text: `invalid reply: ${error}`, detail: (raw || '').slice(0, 300) });
+    // The call rides along so a reply the provider cut off (stop_reason
+    // 'length') can be told from one the subject actually malformed.
     this.log({
       type: 'invalid_reply',
       run_id: this.state.config.runId,
       global_step: this.state.globalStep,
       error,
       raw: (raw || '').slice(0, 4000),
+      call: this.lastCall
+        ? {
+            model: this.lastCall.model,
+            latency_ms: this.lastCall.latencyMs,
+            stop_reason: this.lastCall.stopReason,
+            usage: this.lastCall.usage,
+          }
+        : null,
     });
     this.emit();
   }

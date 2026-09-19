@@ -1,4 +1,5 @@
 import type { StrategyName } from './agent/memory.ts';
+import { LEVELS } from './engine/levels.ts';
 import type { Condition } from './runner.ts';
 
 /**
@@ -53,7 +54,7 @@ export const PROTOCOLS: Protocol[] = [
     asks:
       'Can an agent discover the rules of an unknown world, carry them across rooms, notice when a rule it relied on has silently changed, and revise its model without wrecking the parts that were still right?',
     decidedBy:
-      'Rooms 1-6 measure acquisition: rooms finished, prediction accuracy, and whether the hazard is avoided in room 4 once it has been met in room 3. Rooms 7-8 measure revision: detection delay from the first press that could have revealed the change, stale-rule actions and deaths, whether recovery is reached, whether transfer to room 8 follows, and how much accuracy is lost on the rules that did NOT change. The stable arm is the control — it plays the same eight rooms with nothing swapped, so any drop in rooms 7-8 that also appears there is the rooms, not the change.',
+      'Rooms 1-6 measure acquisition: rooms finished, prediction accuracy, and whether the hazard is avoided in room 4 once it has been met in room 3. Rooms 7-9 measure revision: detection delay from the first press that could have revealed the change, stale-rule actions and deaths, whether recovery is reached, whether transfer to a later room follows, and how much accuracy is lost on the rules that did NOT change. Rooms 10-11 follow a second change that undoes the first, so the same numbers are measured again and the two delays compared. The stable arm is the control — it plays the same eleven rooms with nothing swapped, so any drop after room 6 that also appears there is the rooms, not the change.',
     arms: [
       { strategy: 'structured', condition: 'stable' },
       { strategy: 'structured', condition: 'hidden' },
@@ -102,7 +103,7 @@ export const PROTOCOLS: Protocol[] = [
 ];
 
 /** Upper bound on model calls, so the cost is visible before anything is spent. */
-export function estimateCalls(p: Protocol, rooms = 8, prefixRooms = 6): number {
+export function estimateCalls(p: Protocol, rooms = LEVELS.length, prefixRooms = 6): number {
   if (!p.sharedPrefix) return p.repeats * p.arms.length * rooms * p.budgetPerRoom;
   const strategies = new Set(p.arms.map((a) => a.strategy)).size;
   const prefix = strategies * prefixRooms * p.budgetPerRoom;

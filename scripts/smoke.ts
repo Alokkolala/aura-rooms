@@ -20,7 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { CHANGED_RULES, DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
-import { INTERVENTION_BEFORE_LEVEL, LEVELS } from '../src/engine/levels.ts';
+import { INTERVENTIONS_BEFORE_LEVELS, LEVELS, swappedAt } from '../src/engine/levels.ts';
 import { buildObservation, lastActionOf, pose, auditForLeaks } from '../src/engine/observation.ts';
 import { ENGINE_VERSION, type Button, type EntityState, type Rules } from '../src/engine/types.ts';
 import { applyMemory, emptyMemory, renderMemory, type Memory, type StrategyName } from '../src/agent/memory.ts';
@@ -81,7 +81,7 @@ function observation(s: State) {
     previousRoom: s.previousRoom ?? undefined,
     notice:
       s.condition === 'notified' &&
-      s.levelIndex + 1 === INTERVENTION_BEFORE_LEVEL &&
+      INTERVENTIONS_BEFORE_LEVELS.includes(s.levelIndex + 1) &&
       s.levelStep === 0
         ? CHANGE_NOTICE
         : undefined,
@@ -98,11 +98,13 @@ function observation(s: State) {
  * typechecked; it is now, and the unused-symbol check found this in one pass.
  */
 function maybeIntervene(s: State) {
-  if (s.condition === 'stable' || s.interventionAtStep !== null) return;
-  if (s.levelIndex + 1 !== INTERVENTION_BEFORE_LEVEL) return;
-  s.rules = { ...CHANGED_RULES };
-  s.interventionAtStep = s.globalStep;
-  console.log(`  [researcher] RULE CHANGED on entering room ${INTERVENTION_BEFORE_LEVEL}`);
+  if (s.condition === 'stable') return;
+  const level = s.levelIndex + 1;
+  const swapped = swappedAt(level);
+  if (s.rules.swapped === swapped) return;
+  s.rules = { swapped };
+  if (s.interventionAtStep === null) s.interventionAtStep = s.globalStep;
+  console.log(`  [researcher] RULES ${swapped ? 'SWAPPED' : 'SWAPPED BACK'} on entering room ${level}`);
 }
 
 function init() {

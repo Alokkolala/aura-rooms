@@ -1,0 +1,209 @@
+
+> aura-rooms@0.0.0 campaign
+> node scripts/campaign.ts --strategy=structured --condition=hidden --budget=100 --retries=2 --tag=codex-v4-b100
+
+provider       codex exec · gpt-5.6-luna
+  !! step 1: subject made 1 non-message item(s): error
+  r1 s  1 A HIT  1,4 -> 1,3
+  r1 s  2 B   ·  1,3 -> 2,3
+  r1 s  3 C HIT  2,3 -> 2,4
+  r1 s  4 D MISS 2,4 -> 1,4
+  r1 s  5 A HIT  1,4 -> 1,3
+  r1 s  6 B HIT  1,3 -> 2,3
+  r1 s  7 A HIT  2,3 -> 2,2
+  r1 s  8 B HIT  2,2 -> 3,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r2 s  9 A HIT  5,3 -> 5,2
+  r2 s 10 A HIT  5,2 -> 5,1
+  r2 s 11 D HIT  5,1 -> 4,1
+  r2 s 12 D HIT  4,1 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r3 s 13 A HIT  2,4 -> 2,3
+  r3 s 14 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 15 C MISS blocked
+        flags: Button A was expected to move from (2,3) to (2,2), but the entity ended at (2,4).
+  r3 s 16 A HIT  2,4 -> 2,3
+        flags: Button C produced no movement from (2,4), contrary to the expected upward movement.
+  r3 s 17 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  step 18: REJECTED (memory[0].status must be one of hypothesis confirmed suspect superseded; stop_reason=stop) — no press
+  r3 s 18 C MISS blocked
+        flags: Button A moved from (2,3) to (2,4), contradicting the belief that A moved upward in room 3.
+  r3 s 19 B HIT  2,4 -> 3,4
+        flags: Button C did not move the entity upward from (2,4), contradicting the earlier hypothesis that C moves up.
+  r3 s 20 C MISS blocked
+  r3 s 21 D MISS 3,4 -> 2,4
+        flags: Button C left the entity at (3,4), contradicting the belief that C moves upward there.
+  r3 s 22 C MISS blocked
+  r3 s 23 D HIT  2,4 -> 1,4
+        flags: Button C failed to move the entity upward from (2,4), contradicting the assumed simple up mapping.
+  r3 s 24 B MISS 1,4 -> 2,4
+  r3 s 25 C MISS blocked
+  r3 s 26 D HIT  2,4 -> 1,4
+        flags: Button C did not move the entity upward from (2,4) as expected.
+  r3 s 27 B MISS 1,4 -> 2,4
+  r3 s 28 C MISS blocked
+  r3 s 29 D HIT  2,4 -> 1,4
+        flags: Button C failed to move upward from (2,4), contradicting the upward-movement hypothesis.
+  r3 s 30 B MISS 1,4 -> 2,4
+  r3 s 31 C MISS blocked
+  r3 s 32 D HIT  2,4 -> 1,4
+        flags: Button C did not move the entity from (2,4) to the apparently traversable square (2,3), contradicting reliable upward movement.
+  r3 s 33 B MISS 1,4 -> 2,4
+  r3 s 34 C MISS blocked
+  r3 s 35 D HIT  2,4 -> 1,4
+        flags: Button C failed to move upward from (2,4), contradicting the expected upward move.
+  r3 s 36 C MISS blocked
+  r3 s 37 B MISS 1,4 -> 2,4
+        flags: Button C left the entity at (1,4), contradicting the belief that it always moves upward when the destination is traversable.
+  r3 s 38 C MISS blocked
+  r3 s 39 D HIT  2,4 -> 1,4
+        flags: C failed to move upward from (2,4) to the apparently traversable square (2,3), contradicting the current room-3 layout assumption.
+  r3 s 40 C MISS blocked
+        flags: Button C's earlier behavior at step 39 conflicted with the general upward-movement rule.
+  r3 s 41 B MISS 1,4 -> 2,4
+        flags: Button C did not move upward from (1,4), contrary to the usual upward-movement rule.
+  r3 s 42 C MISS blocked
+  r3 s 43 D HIT  2,4 -> 1,4
+        flags: Button C failed to move the entity upward from (2,4), contrary to the usual upward-movement rule.
+  r3 s 44 C MISS blocked
+  r3 s 45 B MISS 1,4 -> 2,4
+  r3 s 46 C MISS blocked
+  r3 s 47 C HIT  blocked
+        flags: C was pressed from (2,4) and the entity did not move, contradicting the general expectation that C moves upward.
+  r3 s 48 C MISS blocked
+  r3 s 49 C MISS blocked
+        flags: C previously failed to move the entity from (2,4), contradicting the expectation that it reliably moves upward.
+  r3 s 50 B HIT  2,4 -> 3,4
+        flags: Button C failed to move upward from (2,4), contradicting the prior expectation that it would move to (2,3).
+  r3 s 51 D MISS 3,4 -> 2,4
+  r3 s 52 C MISS blocked
+  r3 s 53 D HIT  2,4 -> 1,4
+        flags: Button C left the entity at (2,4) instead of moving it to (2,3), contradicting reliable upward movement from that position.
+  r3 s 54 B MISS 1,4 -> 2,4
+  r3 s 55 C MISS blocked
+  r3 s 56 B HIT  2,4 -> 3,4
+        flags: Button C did not move the entity from (2,4) to the traversable square (2,3).
+  r3 s 57 D MISS 3,4 -> 2,4
+  r3 s 58 C MISS blocked
+  r3 s 59 B HIT  2,4 -> 3,4
+  r3 s 60 C MISS blocked
+  r3 s 61 D MISS 3,4 -> 2,4
+        flags: Button C failed to move the entity from (3,4) to the traversable square (3,3), contradicting the upward-movement hypothesis.
+  r3 s 62 C MISS blocked
+        flags: Button C previously failed to produce the expected upward movement in several tests.
+  r3 s 63 B HIT  2,4 -> 3,4
+        flags: Button C did not move the entity upward from (2,4), contrary to the earlier upward-movement hypothesis.
+  r3 s 64 C MISS blocked
+  r3 s 65 D MISS 3,4 -> 2,4
+        flags: At step 65, Button C did not move the entity from (3,4) to (3,3) as predicted.
+  r3 s 66 C MISS blocked
+  r3 s 67 D HIT  2,4 -> 1,4
+  r3 s 68 B MISS 1,4 -> 2,4
+  r3 s 69 C MISS blocked
+  r3 s 70 D HIT  2,4 -> 1,4
+        flags: Button C did not move the entity from (2,4) to the predicted (2,3).
+  r3 s 71 B MISS 1,4 -> 2,4
+  r3 s 72 A HIT  2,4 -> 2,3
+  r3 s 73 C MISS 2,3 -> 2,4
+        flags: Previous tests showed Button C often failed, so upward movement remains uncertain.
+  r3 s 74 C MISS blocked
+        flags: C moved downward rather than upward.
+  r3 s 75 D HIT  2,4 -> 1,4
+  r3 s 76 B MISS 1,4 -> 2,4
+  r3 s 77 A MISS 2,4 -> 2,3
+  r3 s 78 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+        flags: The previous belief that Button A moves downward conflicts with step 78, where A moved from (2,4) to (2,3).
+  r3 s 79 D HIT  2,4 -> 1,4
+        flags: Button A moved from (2,3) to (2,4), contradicting the belief that A moves upward in room 3.
+  r3 s 80 A HIT  1,4 -> 1,3
+  r3 s 81 A HIT  1,3 -> 1,2
+  r3 s 82 A HIT  1,2 -> 1,1
+  r3 s 83 B HIT  1,1 -> 2,1
+  r3 s 84 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r4 s 85 B HIT  3,4 -> 4,4
+  r4 s 86 B HIT  4,4 -> 5,4
+  r4 s 87 A HIT  5,4 -> 5,3
+  r4 s 88 A HIT  5,3 -> 5,2
+  r4 s 89 A HIT  5,2 -> 5,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r5 s 90 D HIT  5,4 -> 4,4
+  r5 s 91 D HIT  4,4 -> 3,4
+  r5 s 92 D HIT  3,4 -> 2,4
+  r5 s 93 D HIT  2,4 -> 1,4
+        flags: The earlier route predicted moving upward from x=2, but the tile above x=2 is solid, so x=1 is required.
+  r5 s 94 A HIT  1,4 -> 1,3
+  r5 s 95 A HIT  1,3 -> 1,2
+  r5 s 96 A MISS 1,2 -> 2,1
+  r5 s 97 B HIT  2,1 -> 3,1
+  r5 s 98 B HIT  3,1 -> 4,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r6 s 99 D HIT  8,4 -> 7,4
+  r6 s100 D HIT  7,4 -> 6,4
+  r6 s101 A HIT  6,4 -> 6,3
+  r6 s102 A HIT  6,3 -> 6,2
+  r6 s103 A HIT  6,2 -> 6,1
+  r6 s104 A HIT  6,1 -> 6,0
+  r6 s105 D HIT  6,0 -> 5,0
+  r6 s106 D HIT  5,0 -> 4,0
+  r6 s107 D HIT  4,0 -> 3,0
+  r6 s108 D HIT  3,0 -> 2,0
+  r6 s109 D HIT  2,0 -> 1,0
+  r6 s110 D HIT  1,0 -> 0,0
+  r6 s111 C HIT  0,0 -> 0,1
+  r6 s112 C HIT  0,1 -> 0,2
+  r6 s113 C HIT  0,2 -> 0,3
+  r6 s114 C HIT  0,3 -> 0,4
+  r6 s115 B HIT  0,4 -> 1,4
+  r6 s116 B HIT  1,4 -> 2,4
+  r6 s117 B HIT  2,4 -> 3,4
+        flags: The prior prediction was correct; no conflict.
+  r6 s118 A HIT  3,4 -> 3,3
+  r6 s119 A HIT  3,3 -> 3,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+  *** RULE CHANGED on entering room 7 ***
+
+  r7 s120 D HIT  4,4 -> 3,4
+  r7 s121 D HIT  3,4 -> 2,4
+  r7 s122 D HIT  2,4 -> 1,4
+  r7 s123 A HIT  1,4 -> 1,3
+  r7 s124 A HIT  1,3 -> 1,2
+  r7 s125 A HIT  1,2 -> 1,1
+  r7 s126 B HIT  1,1 -> 2,1
+  r7 s127 B HIT  2,1 -> 3,1
+  r7 s128 B HIT  3,1 -> 4,1
+  r7 s129 B HIT  4,1 -> 5,1
+  r7 s130 B MISS SENT BACK from 6,1   [tells: end_position,returned_to_start,room_changed]
+  r7 s131 B HIT  4,4 -> 5,4
+        flags: Entering the concentric tile did not change rooms; it returned the entity to (4,4).
+  r7 s132 B HIT  5,4 -> 6,4
+        flags: None; the previous press matched the predicted move.
+  r7 s133 B HIT  6,4 -> 7,4
+  r7 s134 A MISS 7,4 -> 7,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r8 s135 A HIT  7,5 -> 7,4
+  r8 s136 D HIT  7,4 -> 6,4
+  r8 s137 D HIT  6,4 -> 5,4
+  r8 s138 D HIT  5,4 -> 4,4
+  r8 s139 D HIT  4,4 -> 3,4
+  r8 s140 D HIT  3,4 -> 2,4
+  r8 s141 A HIT  2,4 -> 2,3
+  r8 s142 A HIT  2,3 -> 2,2
+  r8 s143 A HIT  2,2 -> 2,1
+  r8 s144 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+============================================================
+rooms solved   8/8
+presses        144   deaths 4 (1 after the change)
+accuracy       83%  (467/565 fields, 1 presses committed nothing)
+hazard touched r3:3(3 fatal) r7:1(1 fatal)
+change at      step 120
+first evidence 130
+R1 revised     134   (delay after evidence: 4)
+R2 room after  134
+RECOVERED      step 134
+transfer       step 144
+stale rule     3 predictions, 1 actions (1 fatal)
+violations     3 on altered fields, 50 presses overall
+collateral     -20pp accuracy drop on fields the change did not touch
+demoted after  goal_concentric
+invalid        1
+non-message    1 codex item(s) besides the reply, none leaky - seal intact
+provider       codex exec · gpt-5.6-luna
+model calls    145  (1993538 tokens)
+log            C:\p2\autoaura\runs\codex-v4-b100-2026-09-19T1413.jsonl
+EXIT 0

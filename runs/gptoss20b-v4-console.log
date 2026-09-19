@@ -1,0 +1,209 @@
+
+> aura-rooms@0.0.0 campaign
+> node scripts/campaign.ts --strategy=structured --condition=hidden --budget=25 --retries=2 --tag=gptoss20b-v4
+
+provider       openrouter.ai · openai/gpt-oss-20b
+  r1 s  1 A HIT  1,4 -> 1,3
+  r1 s  2 C MISS 1,3 -> 1,4
+  r1 s  3 A HIT  1,4 -> 1,3
+  r1 s  4 B HIT  1,3 -> 2,3
+  r1 s  5 D HIT  2,3 -> 1,3
+  r1 s  6 B HIT  1,3 -> 2,3
+  r1 s  7 A HIT  2,3 -> 2,2
+  r1 s  8 B MISS 2,2 -> 3,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r2 s  9 D HIT  5,3 -> 4,3
+  r2 s 10 D MISS 4,3 -> 3,3
+  r2 s 11 B HIT  3,3 -> 4,3
+  r2 s 12 A MISS blocked
+  r2 s 13 B MISS 4,3 -> 5,3
+        flags: Button A did not move the entity (expected to move up)
+  r2 s 14 A HIT  5,3 -> 5,2
+  r2 s 15 A HIT  5,2 -> 5,1
+  r2 s 16 B HIT  blocked
+  r2 s 17 A HIT  blocked
+  r2 s 18 D HIT  5,1 -> 4,1
+  r2 s 19 D MISS 4,1 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r3 s 20 A HIT  2,4 -> 2,3
+  r3 s 21 B HIT  2,3 -> 3,3
+  r3 s 22 B HIT  blocked
+  r3 s 23 B HIT  blocked
+  r3 s 24 A HIT  3,3 -> 3,2
+  r3 s 25 D MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 26 D HIT  2,4 -> 1,4
+  r3 s 27 D HIT  blocked
+  r3 s 28 A HIT  1,4 -> 1,3
+  r3 s 29 B HIT  1,3 -> 2,3
+  r3 s 30 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 31 A HIT  2,4 -> 2,3
+  r3 s 32 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 33 A MISS 2,4 -> 2,3
+  r3 s 34 B HIT  2,3 -> 3,3
+  r3 s 35 A HIT  3,3 -> 3,2
+  r3 s 36 D MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 37 A HIT  2,4 -> 2,3
+  r3 s 38 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 39 A HIT  2,4 -> 2,3
+  r3 s 40 B HIT  2,3 -> 3,3
+  r3 s 41 A HIT  3,3 -> 3,2
+  r3 s 42 D MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 43 C HIT  blocked
+  r3 s 44 D MISS 2,4 -> 1,4
+  room 3 FAILED (budget)
+  r4 s 45 B HIT  3,4 -> 4,4
+  r4 s 46 D MISS 4,4 -> 3,4
+  r4 s 47 A MISS blocked
+  r4 s 48 D HIT  3,4 -> 2,4
+  r4 s 49 B MISS 2,4 -> 3,4
+  r4 s 50 D HIT  3,4 -> 2,4
+  r4 s 51 B MISS 2,4 -> 3,4
+  r4 s 52 A MISS blocked
+  step 53: REJECTED (unterminated JSON object in response; stop_reason=length) — no press
+  r4 s 53 D HIT  3,4 -> 2,4
+  r4 s 54 B MISS 2,4 -> 3,4
+  r4 s 55 D HIT  3,4 -> 2,4
+  r4 s 56 B MISS 2,4 -> 3,4
+  r4 s 57 B HIT  3,4 -> 4,4
+  r4 s 58 D MISS 4,4 -> 3,4
+  r4 s 59 A MISS blocked
+  r4 s 60 B HIT  3,4 -> 4,4
+  r4 s 61 D MISS 4,4 -> 3,4
+  r4 s 62 B MISS 3,4 -> 4,4
+  r4 s 63 D HIT  4,4 -> 3,4
+  r4 s 64 B HIT  3,4 -> 4,4
+  r4 s 65 D MISS 4,4 -> 3,4
+  r4 s 66 B MISS 3,4 -> 4,4
+  r4 s 67 D MISS 4,4 -> 3,4
+  r4 s 68 B HIT  3,4 -> 4,4
+  r4 s 69 D MISS 4,4 -> 3,4
+  room 4 FAILED (budget)
+  r5 s 70 B HIT  5,4 -> 6,4
+  r5 s 71 D MISS 6,4 -> 5,4
+  r5 s 72 D HIT  5,4 -> 4,4
+  r5 s 73 A MISS SENT BACK from 4,3   [tells: end_position,returned_to_start,room_changed]
+  r5 s 74 D HIT  5,4 -> 4,4
+  r5 s 75 B MISS 4,4 -> 5,4
+  r5 s 76 D HIT  5,4 -> 4,4
+  r5 s 77 B MISS 4,4 -> 5,4
+  r5 s 78 D HIT  5,4 -> 4,4
+  r5 s 79 B HIT  4,4 -> 5,4
+  r5 s 80 B HIT  5,4 -> 6,4
+  r5 s 81 D MISS 6,4 -> 5,4
+  r5 s 82 D HIT  5,4 -> 4,4
+  r5 s 83 B MISS 4,4 -> 5,4
+  r5 s 84 B HIT  5,4 -> 6,4
+  r5 s 85 D MISS 6,4 -> 5,4
+  r5 s 86 B HIT  5,4 -> 6,4
+  r5 s 87 D MISS 6,4 -> 5,4
+  r5 s 88 D HIT  5,4 -> 4,4
+  r5 s 89 B MISS 4,4 -> 5,4
+  r5 s 90 B HIT  5,4 -> 6,4
+  r5 s 91 D MISS 6,4 -> 5,4
+  step 92: REJECTED (no JSON object in response; stop_reason=stop) — no press
+  r5 s 92 D HIT  5,4 -> 4,4
+  r5 s 93 B MISS 4,4 -> 5,4
+  r5 s 94 D MISS 5,4 -> 4,4
+  room 5 FAILED (budget)
+  r6 s 95 D HIT  8,4 -> 7,4
+  r6 s 96 D HIT  7,4 -> 6,4
+  r6 s 97 B HIT  6,4 -> 7,4
+  r6 s 98 A HIT  7,4 -> 7,3
+  r6 s 99 A MISS 7,3 -> 7,2
+  r6 s100 D HIT  7,2 -> 6,2
+  r6 s101 B HIT  6,2 -> 7,2
+  r6 s102 C HIT  7,2 -> 7,3
+  r6 s103 D HIT  7,3 -> 6,3
+  r6 s104 B HIT  6,3 -> 7,3
+  r6 s105 C HIT  7,3 -> 7,4
+  r6 s106 D HIT  7,4 -> 6,4
+  r6 s107 D MISS 6,4 -> 5,4
+  r6 s108 A MISS blocked
+  r6 s109 B HIT  5,4 -> 6,4
+        flags: Button A did not move the entity when pressed on tile_1.
+  r6 s110 D HIT  6,4 -> 5,4
+  r6 s111 A HIT  blocked
+  r6 s112 B HIT  5,4 -> 6,4
+  r6 s113 A MISS 6,4 -> 6,3
+  r6 s114 B HIT  6,3 -> 7,3
+  r6 s115 A MISS 7,3 -> 7,2
+  r6 s116 D MISS 7,2 -> 6,2
+        flags: entity moved up from (7,3) to (7,2) instead of staying in place; room did not change contrary to prediction
+  r6 s117 B HIT  6,2 -> 7,2
+  r6 s118 D HIT  7,2 -> 6,2
+  r6 s119 A MISS 6,2 -> 6,1
+  room 6 FAILED (budget)
+
+  *** RULE CHANGED on entering room 7 ***
+
+  r7 s120 D HIT  4,4 -> 3,4
+  r7 s121 B HIT  3,4 -> 4,4
+  r7 s122 A MISS blocked
+  r7 s123 B HIT  4,4 -> 5,4
+  r7 s124 C   ·  blocked
+  r7 s125 D MISS 5,4 -> 4,4
+  r7 s126 D HIT  4,4 -> 3,4
+  r7 s127 B MISS 3,4 -> 4,4
+  r7 s128 C   ·  blocked
+  r7 s129 D HIT  4,4 -> 3,4
+  r7 s130 C   ·  blocked
+  r7 s131 D HIT  3,4 -> 2,4
+  r7 s132 D   ·  2,4 -> 1,4
+  r7 s133 B HIT  1,4 -> 2,4
+  r7 s134 A HIT  blocked
+  r7 s135 B HIT  2,4 -> 3,4
+  r7 s136 C   ·  blocked
+  r7 s137 B MISS 3,4 -> 4,4
+  r7 s138 C   ·  blocked
+  r7 s139 D HIT  4,4 -> 3,4
+  r7 s140 C HIT  blocked
+  r7 s141 D HIT  3,4 -> 2,4
+  r7 s142 C   ·  blocked
+  r7 s143 B HIT  2,4 -> 3,4
+  r7 s144 C MISS blocked
+  room 7 FAILED (budget)
+  r8 s145 D HIT  7,5 -> 6,5
+  r8 s146 C   ·  blocked
+  r8 s147 A HIT  6,5 -> 6,4
+
+provider error at step 148, attempt 1: terminated
+
+provider error at step 148, attempt 2: fetch failed
+
+provider error at step 148, attempt 3: fetch failed
+
+============================================================
+rooms solved   2/8
+presses        147   deaths 7 (0 after the change)
+accuracy       86%  (453/524 fields, 8 presses committed nothing)
+hazard touched r3:6(6 fatal) r5:1(1 fatal)
+change at      step 120
+first evidence never
+R1 revised     NEVER   (delay after evidence: —)
+R2 room after  NEVER
+RECOVERED      NO
+transfer       NO
+stale rule     0 predictions, 0 actions (0 fatal)
+violations     0 on altered fields, 53 presses overall
+collateral     -6pp accuracy drop on fields the change did not touch
+demoted after  hyp_b_right, hyp_d_left_tile1_effect
+invalid        2
+provider       openrouter.ai · openai/gpt-oss-20b
+model calls    149  (621639 tokens)
+log            C:\p2\autoaura\runs\gptoss20b-v4-2026-09-19T1333.jsonl
+EXIT 0
+
+> aura-rooms@0.0.0 campaign
+> node scripts/campaign.ts --resume=runs/gptoss20b-v4-2026-09-19T1333.jsonl --retries=3
+
+provider       openrouter.ai · openai/gpt-oss-20b
+resuming       gptoss20b-v4-2026-09-19T1333 after step 147 (room 8, 3/25 presses used)
+  r8 s148 C   ·  6,4 -> 6,5
+  r8 s149 D HIT  6,5 -> 5,5
+  step 150: REJECTED (unterminated JSON object in response; stop_reason=stop) — no press
+  r8 s150 A HIT  5,5 -> 5,4
+  r8 s151 D HIT  5,4 -> 4,4
+  r8 s152 B HIT  4,4 -> 5,4
+  r8 s153 C   ·  5,4 -> 5,5
+  r8 s154 B HIT  5,5 -> 6,5
+  r8 s155 A HIT  6,5 -> 6,4
+  r8 s156 C HIT  6,4 -> 6,5
+  r8 s157 A HIT  6,5 -> 6,4

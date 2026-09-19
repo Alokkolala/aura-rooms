@@ -278,7 +278,7 @@ export default function App() {
       <header className="top">
         <h1 className="pix">AURA ROOMS</h1>
         <span className="tag">
-          hidden-rule-change testbed · room {s.levelIndex + 1}/8 · {s.globalStep} actions
+          hidden-rule-change testbed · room {s.levelIndex + 1}/{LEVELS.length} · {s.globalStep} actions
         </span>
         <span className="spacer" />
       </header>

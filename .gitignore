@@ -11,6 +11,8 @@ runs/smoke-state.json
 # Archived engine directories are not matched by the single-level glob above,
 # so everything under runs/archive-engine-*/ is committed as-is.
 !runs/codex-v4-2026-09-19T1208.jsonl
+!runs/codex-v4-b100-2026-09-19T1413.jsonl
+!runs/gptoss20b-v4-2026-09-19T1333.jsonl
 .env
 .env.local
 

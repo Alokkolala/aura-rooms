@@ -175,11 +175,14 @@ applied the rule change at all.
 
 ## The curriculum
 
-Eight hand-authored rooms. Each introduces exactly one thing, and the order is
+Eleven hand-authored rooms. Each introduces exactly one thing, and the order is
 the experiment: if two mechanics arrive together there is no way to tell
-afterwards which one the agent was learning.
+afterwards which one the agent was learning. The surfaces swap before room 7
+and swap **back** before room 10, so the last two rooms are played under the
+original rules again — the A→B→A return that asks whether the first revision
+was an idea or an overwrite.
 
-| # | room | size | requires | original rules | after the swap |
+| # | room | size | requires | original rules | swapped rules |
 |---|---|---|---|---|---|
 | 1 | controls | 5×5 | — | 4 `AABB` | — |
 | 2 | the same shape | 7×4 | — | 4 `AADD` | — |
@@ -188,11 +191,17 @@ afterwards which one the agent was learning.
 | 5 | reorientation | 7×5 | `/` | 9 `DDDDAAABB` | — |
 | 6 | assembly | 9×5 | `/` | 19 `DAAADADDDDDCCCCBBAA` | — |
 | — | *the swap happens here, silently* | | | | |
-| 7 | the same two | 9×5 | — | 11 `DDDAAABBBBB` | 4 `BBBA` |
-| 8 | transfer | 9×6 | `/` | 11 `ADDDDDAAABA` | 10 `ADDDDDAAAA` |
+| 7 | the same two | 9×5 | — | 11 `DDDAAABBBBB` | **4 `BBBA`** |
+| 8 | transfer | 9×6 | `/` | 11 `ADDDDDAAABA` | **10 `ADDDDDAAAA`** |
+| 9 | in the way | 7×7 | — | 2 `AA` | **8 `BBAAAADD`** |
+| — | *the swap is undone here, just as silently* | | | | |
+| 10 | the return | 9×7 | — | **7 `DDDAABB`** | 13 `BBBAAAADDDDDD` |
+| 11 | transfer II | 9×6 | `/` | **8 `CCCDDDDD`** | 3 `CCD` |
 
 Reference lengths are exact shortest paths from breadth-first search over engine
-states, printed by `npm run verify`.
+states, printed by `npm run verify`. Bold marks the regime a changed arm
+actually plays the room under; the stable arm plays every room under the
+original rules.
 
 1. **controls** — what the buttons do. **No lethal surface exists in this room**,
    so all four can be separated without any of them costing a life. The rings are
@@ -229,11 +238,39 @@ states, printed by `npm run verify`.
 8. **transfer** — new geometry, both surfaces behind a deflector and sitting side
    by side. The revised rule has to be combined with the deflector rule that
    never changed, and an agent that has half-revised walks one cell too far.
+9. **in the way** — the revised rule as a *plan*, not a goal. After room 7 the
+   radial is the only other marked surface, so heading for it is consistent
+   with "the rings are not the goal" and says nothing about whether the agent
+   knows the rings now send it back. Here the rings sit on the direct climb to
+   the radial, two presses up, and the only safe way is the loop round either
+   side: eight presses. An agent that holds the rings as a hazard takes the
+   loop first time; one that only re-aimed walks into them and learns it the
+   expensive way. (Rooms 3 and 4 could not separate "sent to the start" from
+   "dropped to the bottom of the column" — a gravity story one subject actually
+   held for three deaths; room 5 was the first that could.)
+10. **the return** — the second intervention: the surfaces trade *back*,
+    silently, and the agent arrives holding the rule it revised to. Room 7's
+    logic with a different map and button string: the surface it now wants is
+    at the end of the long way round and kills; the one it learned to avoid is
+    seven presses up a dead-end branch and wins. What is measured is the delay
+    of the second revision against the first — an agent that formed the idea
+    "those two can trade places" should pay less the second time; one that
+    merely overwrote a goal pays the full price again. The same replay
+    assertions hold for this room as for room 7.
+11. **transfer II** — the re-revised rule in a new map, and the deflector in an
+    orientation it has not been seen in: room 5 turned an upward climb to the
+    right, this one turns a descent to the left, into the corridor holding the
+    rings, and there is no other way in. The radial sits one press off the
+    column on the way down — three presses for an agent still carrying the
+    rule from rooms 7–9, eight for one that has let it go.
 
 Rooms 1–6 are only ever played under the original rules, which is what frees 1
-and 2 to contain no lethal surface at all. Rooms 7 and 8 are verified solvable
-under **both** rule sets, because the `stable` control arm reaches them
-unswapped, and are geometrically identical across all three conditions.
+and 2 to contain no lethal surface at all. Every room from 7 on is verified
+solvable under **both** rule sets, because the `stable` control arm reaches
+them unswapped, and all are geometrically identical across the conditions.
+Rooms 10 and 11 are played under the original rules by *every* arm, so
+anything the changed arms do differently there is what they carried out of
+rooms 7–9, not the room.
 
 Every room declares the surfaces it **requires**, and `npm run verify` bans each
 one and re-solves: a room claiming to teach the deflector has to be *unsolvable*
@@ -379,8 +416,11 @@ afterwards that the run answered a different one.
 
 - **`acquisition-and-revision`** — the main protocol. Structured memory across
   `stable` / `hidden` / `notified`. The stable arm is the control: it plays the
-  same eight rooms with nothing swapped, so any drop in rooms 7–8 that appears
-  there too is the rooms, not the change.
+  same eleven rooms with nothing swapped, so any drop after room 6 that appears
+  there too is the rooms, not the change. Every scheduled change is scored on
+  its own (`metrics.changes[k]`): evidence step, R1, R2, recovery, transfer and
+  stale-rule counts for the swap before room 7 and again for the swap back
+  before room 10.
 - **`detection-vs-relearning`** — hidden against announced. A small gap means
   noticing was never the bottleneck and the cost is in re-learning.
 - **`memory-comparison`** — the sub-experiment. Flat against structured, holding
