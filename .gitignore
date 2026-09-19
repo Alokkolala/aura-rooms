@@ -11,7 +11,7 @@ runs/smoke-state.json
 !runs/smoke-cold-2026-09-18T1816.jsonl
 !runs/probe3-2026-09-18T1824.jsonl
 !runs/probe4-echofix-2026-09-18T1829.jsonl
-!runs/live-cold-2026-09-18T1857.jsonl
+!runs/v3run-2026-09-19T0536.jsonl
 .env
 .env.local
 
