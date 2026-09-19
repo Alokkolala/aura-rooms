@@ -13,9 +13,16 @@ runs/smoke-state.json
 !runs/codex-v4-2026-09-19T1208.jsonl
 !runs/codex-v4-b100-2026-09-19T1413.jsonl
 !runs/gptoss20b-v4-2026-09-19T1333.jsonl
+!runs/codex-v5-b100-2026-09-19T1716.jsonl
+!runs/codex-v5-native-r3-2026-09-19T1821.jsonl
 .env
 .env.local
 
 # scratch files used to compose commit messages
 .msg.txt
 .e11.md
+
+# Remotion video about the project (video/): renders and the recording stay out
+video/out
+video/public/*.mp4
+video/public/*.mov

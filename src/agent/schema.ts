@@ -146,7 +146,9 @@ export function validate(raw: unknown, strategy: StrategyName): Validation {
   if (!expect.ok) return { ok: false, error: expect.error };
 
   let memory: Memory;
-  if (strategy === 'flat') {
+  if (strategy === 'native') {
+    memory = { kind: 'native' }; // nothing is asked for, and nothing sent is kept
+  } else if (strategy === 'flat') {
     const text = str(o.memory, 8000);
     if (text === null) return { ok: false, error: 'memory must be a string for this strategy' };
     memory = { kind: 'flat', text };

@@ -25,6 +25,8 @@ export function ButtonPad({
 }
 
 function MemoryView({ memory, changed }: { memory: Memory; changed: string[] }) {
+  if (memory.kind === 'native')
+    return <p style={{ color: 'var(--dim)' }}>(none — the subject keeps its own conversation)</p>;
   if (memory.kind === 'flat')
     return (
       <pre className={`flatmem ${changed.length ? 'changed' : ''}`}>

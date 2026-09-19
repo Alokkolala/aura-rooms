@@ -731,6 +731,7 @@ export class Run {
 }
 
 function diffEntries(before: Memory, after: Memory): string[] {
+  if (after.kind === 'native' || before.kind === 'native') return [];
   if (after.kind === 'flat')
     return before.kind === 'flat' && before.text === after.text ? [] : ['memory'];
   const prev = new Map(

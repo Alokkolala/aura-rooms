@@ -1,0 +1,402 @@
+{
+  "run_id": "codex-v5-b100-2026-09-19T1716",
+  "engine_version": 5,
+  "provider": "codex",
+  "model": "gpt-5.6-luna",
+  "endpoint": "",
+  "config": {
+    "strategy": "structured",
+    "condition": "hidden",
+    "budget": 100
+  },
+  "resumed_after_steps": [],
+  "outcomes": [
+    {
+      "level": 1,
+      "solved": true,
+      "actions": 4,
+      "deaths": 0
+    },
+    {
+      "level": 2,
+      "solved": true,
+      "actions": 27,
+      "deaths": 0
+    }
+  ],
+  "metrics": {
+    "totalActions": 70,
+    "roomsSolved": 2,
+    "deaths": 5,
+    "deathsAfterChange": 0,
+    "fieldsCommitted": 266,
+    "fieldsCorrect": 214,
+    "accuracy": 0.8045112781954887,
+    "predictionViolations": 28,
+    "predictionsDeclined": 1,
+    "interventionAtStep": null,
+    "firstEvidenceStep": null,
+    "firstRevisedPredictionStep": null,
+    "firstStrictRevisedPredictionStep": null,
+    "flaggedAtStep": null,
+    "detectionDelay": null,
+    "detectionDelayFromChange": null,
+    "ruleRelevantViolations": 0,
+    "staleRulePredictions": 0,
+    "staleRuleActions": 0,
+    "staleRuleDeaths": 0,
+    "postChangeCompletionStep": null,
+    "recovered": false,
+    "recoveredAtStep": null,
+    "recoveredStrict": false,
+    "recoveredStrictAtStep": null,
+    "transferStep": null,
+    "transferSucceeded": false,
+    "changes": [],
+    "collateralAccuracyBefore": 0.8299595141700404,
+    "collateralAccuracyAfter": null,
+    "collateralDrop": null,
+    "statusChanges": [
+      {
+        "step": 1,
+        "id": "start",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 1,
+        "id": "btn_a",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 2,
+        "id": "btn_a",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 2,
+        "id": "btn_b",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 3,
+        "id": "btn_b",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 3,
+        "id": "pos",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 5,
+        "id": "room2_start",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 6,
+        "id": "btn_c",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 7,
+        "id": "btn_c",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 7,
+        "id": "btn_d",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 8,
+        "id": "btn_d",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 9,
+        "id": "room2_pos",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 10,
+        "id": "concentric_exit",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 11,
+        "id": "btn_b",
+        "from": "confirmed",
+        "to": "hypothesis"
+      },
+      {
+        "step": 11,
+        "id": "concentric_exit",
+        "from": "hypothesis",
+        "to": "suspect"
+      },
+      {
+        "step": 12,
+        "id": "concentric_exit",
+        "from": "suspect",
+        "to": "superseded"
+      },
+      {
+        "step": 14,
+        "id": "btn_b",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 14,
+        "id": "concentric_exit",
+        "from": "superseded",
+        "to": "hypothesis"
+      },
+      {
+        "step": 17,
+        "id": "concentric_exit",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 18,
+        "id": "btn_b",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 21,
+        "id": "btn_a",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 22,
+        "id": "btn_b",
+        "from": "suspect",
+        "to": "confirmed"
+      },
+      {
+        "step": 23,
+        "id": "concentric_exit",
+        "from": "confirmed",
+        "to": "hypothesis"
+      },
+      {
+        "step": 28,
+        "id": "btn_a",
+        "from": "suspect",
+        "to": "hypothesis"
+      },
+      {
+        "step": 29,
+        "id": "btn_a",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 32,
+        "id": "concentric_exit",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 32,
+        "id": "room3_layout",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 32,
+        "id": "btn_a_room3",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 33,
+        "id": "room2_pos",
+        "from": "confirmed",
+        "to": "superseded"
+      },
+      {
+        "step": 33,
+        "id": "btn_a_room3",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 34,
+        "id": "btn_a",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 34,
+        "id": "room3_pos",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 40,
+        "id": "btn_a",
+        "from": "suspect",
+        "to": "confirmed"
+      },
+      {
+        "step": 42,
+        "id": "btn_a",
+        "from": "confirmed",
+        "to": "hypothesis"
+      },
+      {
+        "step": 42,
+        "id": "btn_b",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 44,
+        "id": "btn_a",
+        "from": "hypothesis",
+        "to": "suspect"
+      },
+      {
+        "step": 45,
+        "id": "btn_a",
+        "from": "suspect",
+        "to": "hypothesis"
+      },
+      {
+        "step": 46,
+        "id": "btn_a",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 46,
+        "id": "btn_c",
+        "from": "confirmed",
+        "to": "hypothesis"
+      },
+      {
+        "step": 49,
+        "id": "btn_c",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 51,
+        "id": "btn_c",
+        "from": "confirmed",
+        "to": "hypothesis"
+      },
+      {
+        "step": 54,
+        "id": "btn_c",
+        "from": "hypothesis",
+        "to": "suspect"
+      },
+      {
+        "step": 56,
+        "id": "btn_c",
+        "from": "suspect",
+        "to": "hypothesis"
+      },
+      {
+        "step": 57,
+        "id": "btn_b",
+        "from": "suspect",
+        "to": "hypothesis"
+      },
+      {
+        "step": 57,
+        "id": "btn_c",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 58,
+        "id": "btn_b",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 58,
+        "id": "btn_c",
+        "from": "confirmed",
+        "to": "hypothesis"
+      },
+      {
+        "step": 59,
+        "id": "btn_c",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 62,
+        "id": "btn_c",
+        "from": "confirmed",
+        "to": "hypothesis"
+      },
+      {
+        "step": 62,
+        "id": "concentric_exit",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 63,
+        "id": "btn_c",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 63,
+        "id": "concentric_exit",
+        "from": "suspect",
+        "to": "hypothesis"
+      },
+      {
+        "step": 64,
+        "id": "concentric_exit",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 70,
+        "id": "step70",
+        "from": null,
+        "to": "confirmed"
+      }
+    ],
+    "demotedAfterChange": [],
+    "hazardContacts": [
+      {
+        "level": 3,
+        "presses": 5,
+        "deaths": 5
+      }
+    ]
+  },
+  "invalid_replies": 0,
+  "tool_use_alarms": 0,
+  "seal_broken": false,
+  "usage": {
+    "input": 911067,
+    "output": 52028,
+    "calls": 70
+  }
+}

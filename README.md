@@ -541,7 +541,7 @@ structured memory, hidden condition, 25 presses per room, 114 presses, sealed
 throughout. It solved 7 of 8 rooms, died on the rings after the swap exactly as
 room 7 is built to make it, finished rooms 7 and 8, and is scored `recovered` at
 step 94 and `transferSucceeded` at 114 by the criterion above. Read
-`RESEARCH_LOG.md` E17 before repeating those two words: every one of its ten
+`RESEARCH_LOG_E0-E20.md` E17 before repeating those two words: every one of its ten
 deaths was blamed on a button, the tile rule was never written down, and R1
 fired on a press that was two-thirds stale. The pre-registered criterion has a
 hole, the stricter replacement is written down there, and both scorings are
@@ -556,13 +556,13 @@ Earlier engines were exercised only by hand-stepped runs using a sealed subagent
 (Haiku 4.5, one cold spawn per action, `tool_uses: 0` verified on every spawn).
 Those runs are archived and cannot be rescored: they recorded a single
 `predicted_position` where a v4 step records four separate claims. The
-behavioural findings in `REPORT.md` and `RESEARCH_LOG.md` E5–E15 describe **the
+behavioural findings in `REPORT.md` and `RESEARCH_LOG_E0-E20.md` E5–E15 describe **the
 previous instrument** and are marked with the engine they came from.
 
 Three documents, by how much detail you want:
 - **`REPORT.md`** — plain-language account of what was built, how the agent
   actually behaved, and what broke. Start here.
-- **`RESEARCH_LOG.md`** — the dated lab notebook, entry by entry.
+- **`RESEARCH_LOG.md`** — the lab notebook, volume 2 (the instrument as it stands, standing results, entries from E21); **`RESEARCH_LOG_E0-E20.md`** is volume 1, entry by entry.
 - **this file** — the manual.
 
 ## Known limitations

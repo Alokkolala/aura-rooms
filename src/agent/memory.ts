@@ -6,9 +6,17 @@
  * rewrite anything they previously wrote. The flat store is not a strawman: if
  * it loses, it has to lose on organisation, not on being forbidden to correct
  * itself.
+ *
+ * `native` is the control for both: no store at all. The subject keeps its own
+ * conversation from press to press (codex only — a resumed session, see
+ * server/provider.ts) and is asked for nothing but the action and the
+ * predictions. If the attribution failure of E17-E19 — every death booked
+ * against a button, never a surface — survives with the whole history in
+ * front of the subject, it belongs to the subject; if it vanishes, it was the
+ * memory protocol.
  */
 
-export type StrategyName = 'flat' | 'structured';
+export type StrategyName = 'flat' | 'structured' | 'native';
 
 export type EntryStatus = 'hypothesis' | 'confirmed' | 'suspect' | 'superseded';
 
@@ -24,7 +32,9 @@ export interface StructuredEntry {
 
 export type Memory =
   | { kind: 'flat'; text: string }
-  | { kind: 'structured'; entries: StructuredEntry[] };
+  | { kind: 'structured'; entries: StructuredEntry[] }
+  /** nothing held by the harness; the subject's own context is its memory */
+  | { kind: 'native' };
 
 /**
  * The same limit for both strategies — but note what "the same" buys.
@@ -43,6 +53,7 @@ export type Memory =
 export const MEMORY_BUDGET_CHARS = 6000;
 
 export function emptyMemory(s: StrategyName): Memory {
+  if (s === 'native') return { kind: 'native' };
   return s === 'flat' ? { kind: 'flat', text: '' } : { kind: 'structured', entries: [] };
 }
 
@@ -58,6 +69,7 @@ export function emptyMemory(s: StrategyName): Memory {
  * string, so what is counted is exactly what is sent.
  */
 export function renderMemory(m: Memory): string {
+  if (m.kind === 'native') return '';
   if (m.kind === 'flat') return m.text;
   if (!m.entries.length) return '[]';
   return `[\n${m.entries.map((e) => ` ${JSON.stringify(e)}`).join(',\n')}\n]`;

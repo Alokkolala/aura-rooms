@@ -386,7 +386,7 @@ the model rather than the world.
 
 ## 3c. The first real run on this engine
 
-*(2026-09-19. Full detail in `RESEARCH_LOG.md` E17; the log is
+*(2026-09-19. Full detail in `RESEARCH_LOG_E0-E20.md` E17; the log is
 `runs/codex-v4-2026-09-19T1208.jsonl` and replays exactly.)*
 
 One subject — OpenAI's `codex` CLI driving `gpt-5.6-luna`, sealed so it could not

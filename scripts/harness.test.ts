@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { INTERVENTION_BEFORE_LEVEL, LEVELS, NO_HAZARD_LEVELS, swappedAt } from '../src/engine/levels.ts';
 import { solve } from '../src/engine/solver.ts';
 import { buildObservation, FORBIDDEN_TOKENS } from '../src/engine/observation.ts';
-import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory } from '../src/agent/memory.ts';
+import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } from '../src/agent/memory.ts';
 import { systemPrompt, userPrompt } from '../src/agent/prompt.ts';
 import { extractJson, validate, EMPTY_PREDICTION, type Prediction } from '../src/agent/schema.ts';
 import { Run, CHANGE_NOTICE, type Condition, type RunConfig } from '../src/runner.ts';
@@ -35,7 +35,7 @@ function cfg(over: Partial<RunConfig> = {}): RunConfig {
 
 /** The complete text one turn sends, system half included. */
 function fullPrompt(
-  strategy: 'flat' | 'structured',
+  strategy: StrategyName,
   memory: Memory,
   opts: { notice?: string } = {},
 ) {
@@ -65,8 +65,8 @@ function fullPrompt(
 
 // ---------------------------------------------------------------- boundaries
 
-test('no forbidden token reaches the agent, in either strategy', () => {
-  for (const s of ['flat', 'structured'] as const) {
+test('no forbidden token reaches the agent, in any strategy', () => {
+  for (const s of ['flat', 'structured', 'native'] as const) {
     const text = fullPrompt(s, emptyMemory(s), { notice: CHANGE_NOTICE });
     for (const t of FORBIDDEN_TOKENS)
       assert.ok(
@@ -117,7 +117,7 @@ test('the hidden arm is never told that anything about this world can change', (
     (run as any).state.levelIndex = 6;
     assert.equal(run.observation().notice, undefined, `${condition} must get no notice`);
   }
-  for (const s of ['flat', 'structured'] as const) {
+  for (const s of ['flat', 'structured', 'native'] as const) {
     const text = fullPrompt(s, emptyMemory(s)).toLowerCase();
     assert.ok(!text.includes('rule'), `the ${s} hidden prompt mentions a rule`);
     for (const phrase of ['may change', 'can change', 'not guaranteed', 'stable', 'usually'])
@@ -177,6 +177,28 @@ test('both strategies get the same permission to correct themselves', () => {
   // organisation, not on being forbidden to fix its own mistakes.
   assert.match(systemPrompt('flat'), /rewrite, correct or delete/);
   assert.match(systemPrompt('structured'), /edit, restate or drop/);
+});
+
+test('the native arm is asked for no memory and told nothing about keeping one', () => {
+  // The control for the memory protocol itself: same observation, same four
+  // predictions, same contradiction flag, but no store to write and no
+  // instruction about how to remember. Anything said here about tracking
+  // beliefs would be the harness leaking a strategy into the subject.
+  const p = systemPrompt('native');
+  assert.ok(!p.includes('"memory"'), 'the reply schema must not ask for a memory field');
+  assert.ok(!/contradicted_by|supported_by|free text|write it into memory/.test(p));
+  assert.ok(p.includes('This conversation persists'));
+  const user = fullPrompt('native', emptyMemory('native'));
+  assert.ok(!user.includes('Your memory right now'), 'no memory block in the turn');
+  const v = validate(
+    { button: 'A', hypothesis: 'h', prediction: 'p', expect: EMPTY_PREDICTION, contradiction: null },
+    'native',
+  );
+  assert.ok(v.ok, 'a reply with no memory field is valid for the native arm');
+  assert.deepEqual((v as any).reply.memory, { kind: 'native' });
+  assert.equal(renderMemory({ kind: 'native' }), '');
+  // and the stored arms are byte-for-byte what they were before the arm existed
+  assert.ok(systemPrompt('structured').includes('Your memory is the only thing that persists from turn to turn.'));
 });
 
 test('the prompt is a pure function of its arguments — no hidden history', () => {
@@ -858,6 +880,18 @@ test('THE CODEX SUBJECT IS SEALED', () => {
   assert.equal(dir, '/tmp/empty');
   assert.ok(!dir.includes('autoaura'),
     'the working root must never be this repository — levels.ts holds the answers');
+
+  // The native arm: the first press starts a persisted session (everything
+  // sealed except --ephemeral), every later press resumes it by id.
+  const first = codexArgs('some-model', '/tmp/empty', '/tmp/r.txt', { id: null, dir: '/tmp/empty' });
+  assert.ok(!first.includes('--ephemeral'), 'a session has to be recorded to be resumed');
+  assert.ok(first.includes('--sandbox') && first.includes('--ignore-user-config') && first.includes('--ignore-rules'));
+  assert.equal(first[first.indexOf('-C') + 1], '/tmp/empty');
+  const later = codexArgs('some-model', '/tmp/empty', '/tmp/r.txt', { id: 'abc-123', dir: '/tmp/empty' });
+  assert.deepEqual(later.slice(0, 3), ['exec', 'resume', 'abc-123']);
+  assert.ok(later.includes('--ignore-user-config') && later.includes('--ignore-rules') && later.includes('--json'));
+  assert.ok(!later.includes('--ephemeral'));
+  assert.equal(later.at(-1), '-', 'the prompt still arrives on stdin');
 });
 
 test('codex events are summarised into a reply, a token count and a tool-call count', () => {

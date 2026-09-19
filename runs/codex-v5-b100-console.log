@@ -1,0 +1,119 @@
+
+> aura-rooms@0.0.0 campaign
+> node scripts/campaign.ts --strategy=structured --condition=hidden --budget=100 --retries=3 --tag=codex-v5-b100
+
+provider       codex exec · gpt-5.6-luna
+  r1 s  1 A   ·  1,4 -> 1,3
+  r1 s  2 B HIT  1,3 -> 2,3
+  r1 s  3 A HIT  2,3 -> 2,2
+  r1 s  4 B HIT  2,2 -> 3,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r2 s  5 A HIT  5,3 -> 5,2
+        flags: The predicted position (3,2) was not observed; the entity entered room 2 at (5,3).
+  r2 s  6 C HIT  5,2 -> 5,3
+  r2 s  7 D HIT  5,3 -> 4,3
+  r2 s  8 D HIT  4,3 -> 3,3
+  r2 s  9 A HIT  3,3 -> 3,2
+  r2 s 10 B MISS blocked
+  r2 s 11 D MISS blocked
+        flags: Button B did not move the entity right or change rooms from (3,2).
+  r2 s 12 C HIT  3,2 -> 3,3
+  r2 s 13 B HIT  3,3 -> 4,3
+        flags: The prior prediction of ending at (3,3) was correct.
+  r2 s 14 A MISS blocked
+        flags: The previous belief that Button B could not move right here was contradicted; B moved from (3,3) to (4,3).
+  r2 s 15 D HIT  4,3 -> 3,3
+  r2 s 16 A HIT  3,3 -> 3,2
+  r2 s 17 B MISS blocked
+        flags: The entity stepped onto the concentric tile without changing rooms.
+  r2 s 18 C HIT  3,2 -> 3,3
+        flags: Button B did not move the entity right from (3,2) to (4,2), contrary to the general right-movement rule.
+  r2 s 19 B HIT  3,3 -> 4,3
+  r2 s 20 A MISS blocked
+  r2 s 21 B MISS 4,3 -> 5,3
+        flags: Button A did not move the entity from (4,3), contradicting the belief that it always moves upward when the tile above is traversable.
+  r2 s 22 D HIT  5,3 -> 4,3
+  r2 s 23 A MISS blocked
+        flags: The prior prediction of ending at (4,3) was contradicted because the observed result was (4,3) after the D press; no contradiction remains for this new action.
+  r2 s 24 D HIT  4,3 -> 3,3
+        flags: Button A did not move upward from (4,3) to the concentric tile at (4,2), so direct entry from below may be blocked.
+  r2 s 25 B HIT  3,3 -> 4,3
+        flags: The previous position claim of (4,3) was contradicted because step 25 moved the entity left to (3,3).
+  r2 s 26 A MISS blocked
+  r2 s 27 B MISS 4,3 -> 5,3
+        flags: Button A did not move the entity upward from (4,3), contradicting the expectation that it would reach (4,2).
+  r2 s 28 A HIT  5,3 -> 5,2
+  r2 s 29 A HIT  5,2 -> 5,1
+  r2 s 30 D HIT  5,1 -> 4,1
+  r2 s 31 D HIT  4,1 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r3 s 32 A HIT  2,4 -> 2,3
+  r3 s 33 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 34 B HIT  2,4 -> 3,4
+        flags: Button A did not move the entity from (2,3) to (2,2); it ended at (2,4), with (2,2) listed as came_from.
+  r3 s 35 A HIT  3,4 -> 3,3
+  r3 s 36 D HIT  3,3 -> 2,3
+  r3 s 37 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 38 D HIT  2,4 -> 1,4
+        flags: Button A moved the entity from (2,3) to (2,4), contradicting the expectation that it moves upward.
+  r3 s 39 A HIT  1,4 -> 1,3
+  r3 s 40 A HIT  1,3 -> 1,2
+  r3 s 41 B MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 42 A HIT  2,4 -> 2,3
+        flags: Step 42 contradicted the expected rightward movement and prior position; Button B produced a room-3 relocation to (2,4).
+  r3 s 43 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 44 A HIT  2,4 -> 2,3
+        flags: The previous A press moved the entity to (2,4), not the predicted (2,2).
+  r3 s 45 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+        flags: The entity was at (2,3), not (2,4), after the previous press.
+  r3 s 46 C MISS blocked
+        flags: Button A moved downward in room 3, contradicting the prior belief that A moved upward.
+  r3 s 47 D HIT  2,4 -> 1,4
+  r3 s 48 C MISS blocked
+  r3 s 49 B MISS 1,4 -> 2,4
+        flags: Button C did not move upward from (1,4), contradicting the hypothesis that C moves upward in room 3.
+  r3 s 50 C MISS blocked
+  r3 s 51 C MISS blocked
+        flags: Button C previously produced no movement from (2,4), conflicting with the hypothesis that it moves upward.
+  r3 s 52 B HIT  2,4 -> 3,4
+  r3 s 53 C MISS blocked
+  r3 s 54 B MISS blocked
+        flags: Button C did not move the entity from (3,4), contradicting the upward-movement hypothesis.
+  r3 s 55 D MISS 3,4 -> 2,4
+        flags: Button B did not move right from (3,4), contradicting the expectation that it usually moves right there.
+  r3 s 56 C MISS blocked
+  r3 s 57 B HIT  2,4 -> 3,4
+        flags: Button C did not move the entity upward from (2,4), contrary to the earlier upward-movement hypothesis.
+  r3 s 58 C MISS blocked
+        flags: Step 57 showed button C did not move upward from (2,4), conflicting with the general upward-movement hypothesis.
+  r3 s 59 A MISS 3,4 -> 3,3
+  r3 s 60 A HIT  3,3 -> 3,2
+  r3 s 61 A MISS 3,2 -> 3,1
+  r3 s 62 C HIT  3,1 -> 3,2
+        flags: The entity reached the concentric tile at (3,1), but the room did not change.
+  r3 s 63 A MISS 3,2 -> 3,1
+  r3 s 64 C HIT  3,1 -> 3,2
+        flags: The concentric tile did not cause a room transition when entered.
+  r3 s 65 C HIT  3,2 -> 3,3
+  r3 s 66 A HIT  3,3 -> 3,2
+  r3 s 67 A HIT  3,2 -> 3,1
+  r3 s 68 C HIT  3,1 -> 3,2
+  r3 s 69 C MISS 3,2 -> 3,3
+  r3 s 70 A HIT  3,3 -> 3,2
+        flags: The entity reached (3,3), but the room did not change as predicted.
+
+provider error at step 71, attempt 1: codex exec produced no message (exit 3221225794): 
+
+provider error at step 71, attempt 2: codex exec produced no message (exit 3221225794): 
+
+provider error at step 71, attempt 3: codex exec produced no message (exit 3221225794): 
+
+provider error at step 71, attempt 4: codex exec produced no message (exit 3221225794): 
+
+============================================================
+rooms solved   2/11
+presses        70   deaths 5 (0 after the change)
+accuracy       80%  (214/266 fields, 1 presses committed nothing)
+hazard touched r3:5(5 fatal)
+invalid        0
+provider       codex exec · gpt-5.6-luna
+model calls    70  (963095 tokens)
+log            C:\p2\autoaura\runs\codex-v5-b100-2026-09-19T1716.jsonl

@@ -1,0 +1,711 @@
+<title>Codex, Press by Press</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#f4f2f8;--panel:#ffffff;--panel2:#ebe7f2;--ink:#221c2e;--dim:#6c6580;--line:#d9d3e3;--accent:#1f8f96;--green:#2f8a49;--gold:#a67a10;--rose:#c0435a;--lilac:#6a4fb3;--solid:#c9c2d6;--floor:#f7f5fa;--floor2:#efecf4}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1b1823;--panel:#241f2f;--panel2:#2c2639;--ink:#e9e4ef;--dim:#8d86a1;--line:#3a3348;--accent:#6fd3d8;--green:#7fc98a;--gold:#e2b449;--rose:#e07a8a;--lilac:#b9a3e1;--solid:#4a4258;--floor:#d9cfae;--floor2:#cfc39c}}
+:root[data-theme="dark"]{--bg:#1b1823;--panel:#241f2f;--panel2:#2c2639;--ink:#e9e4ef;--dim:#8d86a1;--line:#3a3348;--accent:#6fd3d8;--green:#7fc98a;--gold:#e2b449;--rose:#e07a8a;--lilac:#b9a3e1;--solid:#4a4258;--floor:#d9cfae;--floor2:#cfc39c}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.5;margin:0}
+main{max-width:900px;margin:0 auto;padding:40px 24px 80px}
+h1{font-family:Silkscreen,"IBM Plex Mono",monospace;font-size:26px;letter-spacing:.02em;margin:0 0 6px;text-wrap:balance}
+h2{font-family:Silkscreen,"IBM Plex Mono",monospace;font-size:15px;letter-spacing:.02em;margin:0 0 4px}
+.sub{color:var(--dim);margin:0 0 18px;max-width:64ch}
+.runhead{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 18px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:12px 0;margin:0 0 20px;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.runhead dt{color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-size:10.5px}
+.runhead dd{margin:0}
+.ribbon{display:flex;flex-wrap:wrap;gap:3px;margin:0 0 6px}
+.rb{width:22px;height:22px;display:grid;place-items:center;font-family:"IBM Plex Mono",monospace;font-size:11px;text-decoration:none;color:var(--ink);border-radius:3px;background:var(--panel2)}
+.rb.hit{background:color-mix(in srgb,var(--green) 32%,var(--panel))}
+.rb.miss{background:color-mix(in srgb,var(--gold) 38%,var(--panel))}
+.rb.death{background:color-mix(in srgb,var(--rose) 55%,var(--panel));color:#fff}
+.rb.solved{outline:2px solid var(--accent);outline-offset:-2px}
+.legend{color:var(--dim);font-size:12.5px;margin:0 0 28px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin:0 3px 0 10px}
+.note{border-left:3px solid var(--accent);padding:2px 0 2px 14px;margin:0 0 30px;max-width:66ch}
+.note p{margin:0 0 8px}
+.room{margin:0 0 40px}
+.roomhead{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-top:1px solid var(--line);padding:16px 0 10px;margin:0 0 6px}
+.meta{color:var(--dim);margin:0;font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.map{display:grid;gap:2px;flex:none}
+.cell{width:22px;height:22px;display:grid;place-items:center;position:relative;font-size:12px;color:var(--ink)}
+.cell.solid{background:var(--solid)}.cell.floor{background:var(--floor)}.cell.floor.alt{background:var(--floor2)}
+.cell.rings{background:var(--gold);color:#221c2e}.cell.spokes{background:var(--lilac);color:#221c2e}.cell.defl{background:var(--floor);color:var(--ink)}
+.cell.death{box-shadow:inset 0 0 0 2px var(--rose)}
+.cell b{position:absolute;right:1px;bottom:-1px;font-size:9px;color:var(--rose);font-family:"IBM Plex Mono",monospace}
+.cell i{position:absolute;left:2px;top:0;font-size:9px;font-style:normal;color:var(--accent);font-family:"IBM Plex Mono",monospace}
+.press{display:grid;grid-template-columns:82px 1fr;gap:14px;padding:12px 0;border-top:1px dashed var(--line)}
+.press.died{background:linear-gradient(90deg,color-mix(in srgb,var(--rose) 10%,transparent),transparent 40%)}
+.gutter{display:flex;flex-direction:column;gap:2px;font-family:"IBM Plex Mono",monospace}
+.step{color:var(--dim);font-size:12px}.btn{font-size:22px;font-weight:500;line-height:1}.lat{color:var(--dim);font-size:10.5px}
+.content p{margin:0 0 6px;max-width:72ch}
+.lbl{display:inline-block;min-width:118px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;font-family:"IBM Plex Mono",monospace;vertical-align:1px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:4px 10px;margin:4px 0 8px 0;font-family:"IBM Plex Mono",monospace;font-size:12px}
+.fld{display:flex;justify-content:space-between;gap:8px;padding:3px 8px;border-radius:3px;background:var(--panel2)}
+.fld.ok{box-shadow:inset 3px 0 0 var(--green)}.fld.bad{box-shadow:inset 3px 0 0 var(--rose)}.fld.na{color:var(--dim)}
+.fn{color:var(--dim)}.fv em{color:var(--dim);font-style:normal}
+.what{font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+.tag{padding:1px 6px;border-radius:3px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-right:4px}
+.tag.death{background:var(--rose);color:#fff}.tag.blocked{background:var(--panel2);color:var(--dim)}.tag.solved{background:var(--accent);color:#1b1823}
+.flag{border-left:2px solid var(--gold);padding-left:10px}
+.memwrap{margin-top:4px}
+.mem{list-style:none;margin:4px 0 0;padding:0;font-size:13px}
+.mem li{margin:0 0 3px;padding-left:14px;text-indent:-14px}
+.mem.none{color:var(--dim);font-size:12.5px;display:inline;margin:0}
+.op{display:inline-block;width:14px;text-indent:0;font-family:"IBM Plex Mono",monospace;color:var(--dim)}
+.mem code{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent)}
+.st{font-family:"IBM Plex Mono",monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;padding:0 5px;border-radius:2px;background:var(--panel2)}
+.st.confirmed{color:var(--green)}.st.suspect{color:var(--gold)}.st.hypothesis{color:var(--lilac)}.st.superseded{color:var(--dim);text-decoration:line-through}
+.was{color:var(--dim);font-style:italic}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (max-width:600px){.press{grid-template-columns:1fr}.gutter{flex-direction:row;align-items:baseline;gap:10px}.roomhead{flex-direction:column}}
+</style>
+<main>
+<h1>Codex, Press by Press</h1>
+<p class="sub">Every reply gpt-5.6-luna gave in the first run on the eleven-room curriculum, next to what the engine actually did and the memory it rewrote. Nothing is summarised; this is the recorded thinking.</p>
+<dl class="runhead">
+<div><dt>log</dt><dd>codex-v5-b100-2026-09-19T1716.jsonl</dd></div>
+<div><dt>subject</dt><dd>codex exec · gpt-5.6-luna</dd></div>
+<div><dt>engine · budget</dt><dd>v5 · 100/room</dd></div>
+<div><dt>presses · rooms</dt><dd>70 · 2/11 solved</dd></div>
+<div><dt>sent back</dt><dd>5, all at (2,2) in room 3</dd></div>
+<div><dt>field accuracy</dt><dd>80% (214/266)</dd></div>
+<div><dt>stopped</dt><dd>by hand, room 3 press 39</dd></div>
+</dl>
+<div class="ribbon"><a class="rb none" href="#s1" title="step 1 · room 1 · A · moved">A</a><a class="rb hit" href="#s2" title="step 2 · room 1 · B · moved">B</a><a class="rb hit" href="#s3" title="step 3 · room 1 · A · moved">A</a><a class="rb hit solved" href="#s4" title="step 4 · room 1 · B · moved">B</a><a class="rb hit" href="#s5" title="step 5 · room 2 · A · moved">A</a><a class="rb hit" href="#s6" title="step 6 · room 2 · C · moved">C</a><a class="rb hit" href="#s7" title="step 7 · room 2 · D · moved">D</a><a class="rb hit" href="#s8" title="step 8 · room 2 · D · moved">D</a><a class="rb hit" href="#s9" title="step 9 · room 2 · A · moved">A</a><a class="rb miss" href="#s10" title="step 10 · room 2 · B · blocked">B</a><a class="rb miss" href="#s11" title="step 11 · room 2 · D · blocked">D</a><a class="rb hit" href="#s12" title="step 12 · room 2 · C · moved">C</a><a class="rb hit" href="#s13" title="step 13 · room 2 · B · moved">B</a><a class="rb miss" href="#s14" title="step 14 · room 2 · A · blocked">A</a><a class="rb hit" href="#s15" title="step 15 · room 2 · D · moved">D</a><a class="rb hit" href="#s16" title="step 16 · room 2 · A · moved">A</a><a class="rb miss" href="#s17" title="step 17 · room 2 · B · blocked">B</a><a class="rb hit" href="#s18" title="step 18 · room 2 · C · moved">C</a><a class="rb hit" href="#s19" title="step 19 · room 2 · B · moved">B</a><a class="rb miss" href="#s20" title="step 20 · room 2 · A · blocked">A</a><a class="rb miss" href="#s21" title="step 21 · room 2 · B · moved">B</a><a class="rb hit" href="#s22" title="step 22 · room 2 · D · moved">D</a><a class="rb miss" href="#s23" title="step 23 · room 2 · A · blocked">A</a><a class="rb hit" href="#s24" title="step 24 · room 2 · D · moved">D</a><a class="rb hit" href="#s25" title="step 25 · room 2 · B · moved">B</a><a class="rb miss" href="#s26" title="step 26 · room 2 · A · blocked">A</a><a class="rb miss" href="#s27" title="step 27 · room 2 · B · moved">B</a><a class="rb hit" href="#s28" title="step 28 · room 2 · A · moved">A</a><a class="rb hit" href="#s29" title="step 29 · room 2 · A · moved">A</a><a class="rb hit" href="#s30" title="step 30 · room 2 · D · moved">D</a><a class="rb hit solved" href="#s31" title="step 31 · room 2 · D · moved">D</a><a class="rb hit" href="#s32" title="step 32 · room 3 · A · moved">A</a><a class="rb death" href="#s33" title="step 33 · room 3 · A · sent back">A</a><a class="rb hit" href="#s34" title="step 34 · room 3 · B · moved">B</a><a class="rb hit" href="#s35" title="step 35 · room 3 · A · moved">A</a><a class="rb hit" href="#s36" title="step 36 · room 3 · D · moved">D</a><a class="rb death" href="#s37" title="step 37 · room 3 · A · sent back">A</a><a class="rb hit" href="#s38" title="step 38 · room 3 · D · moved">D</a><a class="rb hit" href="#s39" title="step 39 · room 3 · A · moved">A</a><a class="rb hit" href="#s40" title="step 40 · room 3 · A · moved">A</a><a class="rb death" href="#s41" title="step 41 · room 3 · B · sent back">B</a><a class="rb hit" href="#s42" title="step 42 · room 3 · A · moved">A</a><a class="rb death" href="#s43" title="step 43 · room 3 · A · sent back">A</a><a class="rb hit" href="#s44" title="step 44 · room 3 · A · moved">A</a><a class="rb death" href="#s45" title="step 45 · room 3 · A · sent back">A</a><a class="rb miss" href="#s46" title="step 46 · room 3 · C · blocked">C</a><a class="rb hit" href="#s47" title="step 47 · room 3 · D · moved">D</a><a class="rb miss" href="#s48" title="step 48 · room 3 · C · blocked">C</a><a class="rb miss" href="#s49" title="step 49 · room 3 · B · moved">B</a><a class="rb miss" href="#s50" title="step 50 · room 3 · C · blocked">C</a><a class="rb miss" href="#s51" title="step 51 · room 3 · C · blocked">C</a><a class="rb hit" href="#s52" title="step 52 · room 3 · B · moved">B</a><a class="rb miss" href="#s53" title="step 53 · room 3 · C · blocked">C</a><a class="rb miss" href="#s54" title="step 54 · room 3 · B · blocked">B</a><a class="rb miss" href="#s55" title="step 55 · room 3 · D · moved">D</a><a class="rb miss" href="#s56" title="step 56 · room 3 · C · blocked">C</a><a class="rb hit" href="#s57" title="step 57 · room 3 · B · moved">B</a><a class="rb miss" href="#s58" title="step 58 · room 3 · C · blocked">C</a><a class="rb miss" href="#s59" title="step 59 · room 3 · A · moved">A</a><a class="rb hit" href="#s60" title="step 60 · room 3 · A · moved">A</a><a class="rb miss" href="#s61" title="step 61 · room 3 · A · moved">A</a><a class="rb hit" href="#s62" title="step 62 · room 3 · C · moved">C</a><a class="rb miss" href="#s63" title="step 63 · room 3 · A · moved">A</a><a class="rb hit" href="#s64" title="step 64 · room 3 · C · moved">C</a><a class="rb hit" href="#s65" title="step 65 · room 3 · C · moved">C</a><a class="rb hit" href="#s66" title="step 66 · room 3 · A · moved">A</a><a class="rb hit" href="#s67" title="step 67 · room 3 · A · moved">A</a><a class="rb hit" href="#s68" title="step 68 · room 3 · C · moved">C</a><a class="rb miss" href="#s69" title="step 69 · room 3 · C · moved">C</a><a class="rb hit" href="#s70" title="step 70 · room 3 · A · moved">A</a></div>
+<p class="legend">one cell per press, click to jump<i style="background:color-mix(in srgb,var(--green) 32%,var(--panel))"></i>every committed field right<i style="background:color-mix(in srgb,var(--gold) 38%,var(--panel))"></i>at least one wrong<i style="background:color-mix(in srgb,var(--rose) 55%,var(--panel))"></i>sent back to start<i style="outline:2px solid var(--accent);outline-offset:-2px;background:transparent"></i>room ended</p>
+<div class="note">
+<p><b>How to read it.</b> The agent sees the grid as anonymous tile names, its own position, the last press as <code>before → after</code> with a <code>came_from</code> cell, and its memory. It answers with a button, a hypothesis, a prediction, four checkable fields, a contradiction flag, and a full rewrite of its memory. "Sent back" means it landed on the surface that is lethal under the rules in force and was returned to the room's start; the agent is never told that — it sees only the positions.</p>
+<p><b>What the instrument does not keep:</b> codex's internal reasoning items. The provider records the final message only, so the thinking here is what it chose to say, which is also the only thing that reaches its memory.</p>
+</div>
+<section class="room" id="room1"><header class="roomhead"><div><h2>Room 1 · controls</h2><p class="meta">4 presses · 0 sent back · solved</p></div><div class="map" style="grid-template-columns:repeat(5,1fr)"><div class="cell solid" title="(0,0) #"></div><div class="cell solid" title="(1,0) #"></div><div class="cell solid" title="(2,0) #"></div><div class="cell solid" title="(3,0) #"></div><div class="cell solid" title="(4,0) #"></div><div class="cell solid" title="(0,1) #"></div><div class="cell floor alt" title="(1,1) ,"></div><div class="cell floor" title="(2,1) ."></div><div class="cell floor" title="(3,1) ."></div><div class="cell solid" title="(4,1) #"></div><div class="cell solid" title="(0,2) #"></div><div class="cell floor" title="(1,2) ."></div><div class="cell floor" title="(2,2) ."></div><div class="cell rings" title="(3,2) O">◎</div><div class="cell solid" title="(4,2) #"></div><div class="cell solid" title="(0,3) #"></div><div class="cell floor" title="(1,3) ."></div><div class="cell floor alt" title="(2,3) ,"></div><div class="cell floor" title="(3,3) ."></div><div class="cell solid" title="(4,3) #"></div><div class="cell solid" title="(0,4) #"></div><div class="cell floor start" title="(1,4) . start"><i>S</i></div><div class="cell floor" title="(2,4) ."></div><div class="cell floor" title="(3,4) ."></div><div class="cell solid" title="(4,4) #"></div></div></header><article class="press" id="s1">
+      <div class="gutter"><span class="step">1</span><span class="btn">A</span><span class="lat">12s · 237 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether button A moves the entity toward the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity may move or the room may react.</p>
+        <div class="fields"><div class="fld na"><span class="fn">end position</span><span class="fv">· <em>→</em> (1,3)</span></div><div class="fld na"><span class="fn">position changed</span><span class="fv">· <em>→</em> yes</span></div><div class="fld na"><span class="fn">returned to start</span><span class="fv">· <em>→</em> no</span></div><div class="fld na"><span class="fn">room changed</span><span class="fv">· <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(1,4) → (1,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">+</span> <span class="st confirmed">confirmed</span> <code>start</code> The entity starts at (1,4) in room 1, and the concentric tile is at (3,2).</li><li><span class="op">+</span> <span class="st hypothesis">hypothesis</span> <code>btn_a</code> Button A may move the entity toward the concentric tile.</li></ul></div>
+      </div></article><article class="press" id="s2">
+      <div class="gutter"><span class="step">2</span><span class="btn">B</span><span class="lat">12s · 323 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button B moves the entity one square to the right.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(2,3) <em>→</em> (2,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(1,3) → (2,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_a</code> Button A moves the entity one square upward.</li><li><span class="op">+</span> <span class="st hypothesis">hypothesis</span> <code>btn_b</code> Button B moves the entity one square to the right.</li></ul></div>
+      </div></article><article class="press" id="s3">
+      <div class="gutter"><span class="step">3</span><span class="btn">A</span><span class="lat">14s · 363 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves the entity one square upward in room 1.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(2,2) <em>→</em> (2,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,3) → (2,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_b</code> Button B moves the entity one square to the right.</li><li><span class="op">+</span> <span class="st confirmed">confirmed</span> <code>pos</code> The entity is currently at (2,3) in room 1.</li></ul></div>
+      </div></article><article class="press" id="s4">
+      <div class="gutter"><span class="step">4</span><span class="btn">B</span><span class="lat">18s · 667 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether moving right onto the concentric tile changes rooms.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right onto the concentric tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld na"><span class="fn">room changed</span><span class="fv">· <em>→</em> yes</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,2) → (3,2) <span class="tag solved">room ended</span></p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>pos</code> The entity is currently at (2,2) in room 1. <span class="was">was: The entity is currently at (2,3) in room 1.</span></li></ul></div>
+      </div></article></section><section class="room" id="room2"><header class="roomhead"><div><h2>Room 2 · the same shape</h2><p class="meta">27 presses · 0 sent back · solved</p></div><div class="map" style="grid-template-columns:repeat(7,1fr)"><div class="cell solid" title="(0,0) #"></div><div class="cell solid" title="(1,0) #"></div><div class="cell solid" title="(2,0) #"></div><div class="cell solid" title="(3,0) #"></div><div class="cell solid" title="(4,0) #"></div><div class="cell solid" title="(5,0) #"></div><div class="cell solid" title="(6,0) #"></div><div class="cell solid" title="(0,1) #"></div><div class="cell floor alt" title="(1,1) ,"></div><div class="cell floor" title="(2,1) ."></div><div class="cell rings" title="(3,1) O">◎</div><div class="cell floor" title="(4,1) ."></div><div class="cell floor" title="(5,1) ."></div><div class="cell solid" title="(6,1) #"></div><div class="cell solid" title="(0,2) #"></div><div class="cell floor" title="(1,2) ."></div><div class="cell solid" title="(2,2) #"></div><div class="cell floor" title="(3,2) ."></div><div class="cell solid" title="(4,2) #"></div><div class="cell floor" title="(5,2) ."></div><div class="cell solid" title="(6,2) #"></div><div class="cell solid" title="(0,3) #"></div><div class="cell floor" title="(1,3) ."></div><div class="cell floor" title="(2,3) ."></div><div class="cell floor" title="(3,3) ."></div><div class="cell floor" title="(4,3) ."></div><div class="cell floor start" title="(5,3) . start"><i>S</i></div><div class="cell solid" title="(6,3) #"></div></div></header><article class="press" id="s5">
+      <div class="gutter"><span class="step">5</span><span class="btn">A</span><span class="lat">19s · 511 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves the entity one square upward in room 2.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up onto the tile above.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(5,2) <em>→</em> (5,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(5,3) → (5,2)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The predicted position (3,2) was not observed; the entity entered room 2 at (5,3).</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>pos</code> The entity reached (3,2) and entered room 2 after step 5. <span class="was">was: The entity is currently at (2,2) in room 1.</span></li><li><span class="op">+</span> <span class="st confirmed">confirmed</span> <code>room2_start</code> The entity is currently at (5,3) in room 2.</li></ul></div>
+      </div></article><article class="press" id="s6">
+      <div class="gutter"><span class="step">6</span><span class="btn">C</span><span class="lat">18s · 548 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button C may move the entity one square downward.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves down onto the tile below.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(5,3) <em>→</em> (5,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(5,2) → (5,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_start</code> The entity started at (5,3) in room 2. <span class="was">was: The entity is currently at (5,3) in room 2.</span></li><li><span class="op">+</span> <span class="st hypothesis">hypothesis</span> <code>btn_c</code> Button C moves the entity one square downward.</li></ul></div>
+      </div></article><article class="press" id="s7">
+      <div class="gutter"><span class="step">7</span><span class="btn">D</span><span class="lat">18s · 515 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button D moves the entity one square left in room 2.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left onto the tile beside it.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(4,3) <em>→</em> (4,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(5,3) → (4,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_c</code> Button C moves the entity one square downward.</li><li><span class="op">+</span> <span class="st hypothesis">hypothesis</span> <code>btn_d</code> Button D moves the entity one square left.</li></ul></div>
+      </div></article><article class="press" id="s8">
+      <div class="gutter"><span class="step">8</span><span class="btn">D</span><span class="lat">17s · 539 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button D moves the entity one square left in room 2.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left to (3,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(4,3) → (3,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_d</code> Button D moves the entity one square left.</li></ul></div>
+      </div></article><article class="press" id="s9">
+      <div class="gutter"><span class="step">9</span><span class="btn">A</span><span class="lat">17s · 621 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves the entity one square upward in room 2.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up to (3,2).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (3,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">+</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (3,3) in room 2.</li></ul></div>
+      </div></article><article class="press" id="s10">
+      <div class="gutter"><span class="step">10</span><span class="btn">B</span><span class="lat">27s · 780 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button B moves right onto the concentric tile, possibly entering the next room.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (4,2) and the room changes.</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(4,2) <em>→</em> (3,2)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld bad"><span class="fn">room changed</span><span class="fv">yes <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (3,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (3,2) in room 2. <span class="was">was: The entity is currently at (3,3) in room 2.</span></li><li><span class="op">+</span> <span class="st hypothesis">hypothesis</span> <code>concentric_exit</code> Stepping right onto the room 2 concentric tile at (4,2) changes rooms.</li></ul></div>
+      </div></article><article class="press" id="s11">
+      <div class="gutter"><span class="step">11</span><span class="btn">D</span><span class="lat">20s · 762 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether moving left from the current position is possible.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left to (2,2).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,2) <em>→</em> (3,2)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (3,2)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button B did not move the entity right or change rooms from (3,2).</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_b</code> Button B moves the entity one square to the right when the destination is traversable.</li><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st suspect">suspect</span> <code>concentric_exit</code> Stepping right onto the room 2 concentric tile at (4,2) changes rooms.</li></ul></div>
+      </div></article><article class="press" id="s12">
+      <div class="gutter"><span class="step">12</span><span class="btn">C</span><span class="lat">22s · 835 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether C moves the entity downward from its current position.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves down to (3,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,2) → (3,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_d</code> Button D moves the entity one square left when the destination is traversable. <span class="was">was: Button D moves the entity one square left.</span></li><li><span class="op">~</span> <span class="st suspect">suspect</span> <em>→</em> <span class="st superseded">superseded</span> <code>concentric_exit</code> Stepping right onto the room 2 concentric tile at (4,2) changes rooms.</li></ul></div>
+      </div></article><article class="press" id="s13">
+      <div class="gutter"><span class="step">13</span><span class="btn">B</span><span class="lat">22s · 849 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether Button B moves right from the current bottom-row position.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (4,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(4,3) <em>→</em> (4,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (4,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The prior prediction of ending at (3,3) was correct.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st hypothesis">hypothesis</span> <code>btn_b</code> Button B attempts to move the entity one square right when the destination is traversable. <span class="was">was: Button B moves the entity one square to the right when the destination is traversable.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_c</code> Button C moves the entity one square downward when traversable. <span class="was">was: Button C moves the entity one square downward.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_d</code> Button D moves the entity one square left when traversable. <span class="was">was: Button D moves the entity one square left when the destination is traversable.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (3,3) in room 2. <span class="was">was: The entity is currently at (3,2) in room 2.</span></li><li><span class="op">≈</span> <span class="st superseded">superseded</span> <code>concentric_exit</code> Stepping right onto the room 2 concentric tile changes rooms. <span class="was">was: Stepping right onto the room 2 concentric tile at (4,2) changes rooms.</span></li></ul></div>
+      </div></article><article class="press" id="s14">
+      <div class="gutter"><span class="step">14</span><span class="btn">A</span><span class="lat">20s · 778 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether moving onto the concentric tile at (4,2) changes rooms.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up onto the concentric tile.</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(4,2) <em>→</em> (4,3)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld na"><span class="fn">room changed</span><span class="fv">· <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (4,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The previous belief that Button B could not move right here was contradicted; B moved from (3,3) to (4,3).</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_b</code> Button B moves the entity one square right when the destination is traversable.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (4,3) in room 2. <span class="was">was: The entity is currently at (3,3) in room 2.</span></li><li><span class="op">~</span> <span class="st superseded">superseded</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>concentric_exit</code> Stepping onto the room 2 concentric tile may change rooms.</li></ul></div>
+      </div></article><article class="press" id="s15">
+      <div class="gutter"><span class="step">15</span><span class="btn">D</span><span class="lat">34s · 907 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button D will move the entity left toward the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left to (3,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(4,3) → (3,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_a</code> Button A attempts to move the entity one square upward, but blocked destinations prevent movement. <span class="was">was: Button A moves the entity one square upward.</span></li></ul></div>
+      </div></article><article class="press" id="s16">
+      <div class="gutter"><span class="step">16</span><span class="btn">A</span><span class="lat">24s · 759 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether moving upward from (3,3) reaches the traversable square at (3,2).</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up to (3,2).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (3,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (3,3) in room 2. <span class="was">was: The entity is currently at (4,3) in room 2.</span></li></ul></div>
+      </div></article><article class="press" id="s17">
+      <div class="gutter"><span class="step">17</span><span class="btn">B</span><span class="lat">20s · 760 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether moving right from the concentric tile is traversable.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (4,2).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(4,2) <em>→</em> (3,2)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (3,2)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The entity stepped onto the concentric tile without changing rooms.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (3,2) in room 2. <span class="was">was: The entity is currently at (3,3) in room 2.</span></li><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>concentric_exit</code> Stepping onto the room 2 concentric tile does not immediately change rooms.</li></ul></div>
+      </div></article><article class="press" id="s18">
+      <div class="gutter"><span class="step">18</span><span class="btn">C</span><span class="lat">27s · 843 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether Button C moves the entity downward from the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves down to (3,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,2) → (3,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button B did not move the entity right from (3,2) to (4,2), contrary to the general right-movement rule.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st suspect">suspect</span> <code>btn_b</code> Button B usually moves the entity one square right when the destination is traversable, but may be blocked on the concentric tile.</li></ul></div>
+      </div></article><article class="press" id="s19">
+      <div class="gutter"><span class="step">19</span><span class="btn">B</span><span class="lat">24s · 725 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether Button B moves right from the current position.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (4,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(4,3) <em>→</em> (4,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (4,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (3,3) in room 2. <span class="was">was: The entity is currently at (3,2) in room 2.</span></li></ul></div>
+      </div></article><article class="press" id="s20">
+      <div class="gutter"><span class="step">20</span><span class="btn">A</span><span class="lat">23s · 743 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether moving onto the room 2 concentric tile from below triggers a room transition.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up onto the concentric tile at (4,2), with no room change.</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(4,2) <em>→</em> (4,3)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (4,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (4,3) in room 2 after button B at step 20. <span class="was">was: The entity is currently at (3,3) in room 2.</span></li></ul></div>
+      </div></article><article class="press" id="s21">
+      <div class="gutter"><span class="step">21</span><span class="btn">B</span><span class="lat">28s · 821 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether Button B moves the entity right from (4,3).</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (5,3), with no room change.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(5,3) <em>→</em> (5,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(4,3) → (5,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button A did not move the entity from (4,3), contradicting the belief that it always moves upward when the tile above is traversable.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st suspect">suspect</span> <code>btn_a</code> Button A often attempts upward movement, but at (4,3) it was blocked despite the tile above appearing traversable.</li><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_b</code> Button B usually moves the entity one square right when the destination is traversable. <span class="was">was: Button B usually moves the entity one square right when the destination is traversable, but may be blocked on the concentric tile.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (4,3) in room 2 after button A at step 21. <span class="was">was: The entity is currently at (4,3) in room 2 after button B at step 20.</span></li></ul></div>
+      </div></article><article class="press" id="s22">
+      <div class="gutter"><span class="step">22</span><span class="btn">D</span><span class="lat">25s · 697 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button D will move the entity one square left toward the room's concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left to (4,3), with no room change.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(4,3) <em>→</em> (4,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(5,3) → (4,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_a</code> Button A attempts upward movement and can be blocked by walls. <span class="was">was: Button A often attempts upward movement, but at (4,3) it was blocked despite the tile above appearing traversable.</span></li><li><span class="op">~</span> <span class="st suspect">suspect</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_b</code> Button B moves the entity one square right when the destination is traversable.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>pos</code> The entity entered room 2 after step 5 at (5,3). <span class="was">was: The entity reached (3,2) and entered room 2 after step 5.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (5,3) in room 2. <span class="was">was: The entity is currently at (4,3) in room 2 after button A at step 21.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>concentric_exit</code> Stepping onto the room 2 concentric tile does not always immediately change rooms. <span class="was">was: Stepping onto the room 2 concentric tile does not immediately change rooms.</span></li><li><span class="op">−</span> <code>room2_start</code> <span class="was">The entity started at (5,3) in room 2.</span></li></ul></div>
+      </div></article><article class="press" id="s23">
+      <div class="gutter"><span class="step">23</span><span class="btn">A</span><span class="lat">27s · 746 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether A moves upward from the current position.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up to (4,2), with no room change.</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(4,2) <em>→</em> (4,3)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (4,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The prior prediction of ending at (4,3) was contradicted because the observed result was (4,3) after the D press; no contradiction remains for this new action.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_a</code> Button A usually attempts upward movement, but its result may depend on room or state. <span class="was">was: Button A attempts upward movement and can be blocked by walls.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (4,3) in room 2. <span class="was">was: The entity is currently at (5,3) in room 2.</span></li><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>concentric_exit</code> The room 2 concentric tile is at (3,1), and reaching it may change rooms.</li></ul></div>
+      </div></article><article class="press" id="s24">
+      <div class="gutter"><span class="step">24</span><span class="btn">D</span><span class="lat">30s · 868 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Move left to approach the concentric tile from the open corridor.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left to (3,3), with no room change.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(4,3) → (3,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button A did not move upward from (4,3) to the concentric tile at (4,2), so direct entry from below may be blocked.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_a</code> Button A usually attempts upward movement, but it can be blocked by the tile above. <span class="was">was: Button A usually attempts upward movement, but its result may depend on room or state.</span></li><li><span class="op">≈</span> <span class="st hypothesis">hypothesis</span> <code>concentric_exit</code> The room 2 concentric tile is at (4,2), and approaching it from the left may change rooms. <span class="was">was: The room 2 concentric tile is at (3,1), and reaching it may change rooms.</span></li></ul></div>
+      </div></article><article class="press" id="s25">
+      <div class="gutter"><span class="step">25</span><span class="btn">B</span><span class="lat">23s · 770 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button B will move the entity right toward the room's concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (4,3), with no room change.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(4,3) <em>→</em> (4,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (4,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The previous position claim of (4,3) was contradicted because step 25 moved the entity left to (3,3).</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_d</code> Button D moves the entity one square left when the destination is traversable. <span class="was">was: Button D moves the entity one square left when traversable.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (3,3) in room 2. <span class="was">was: The entity is currently at (4,3) in room 2.</span></li></ul></div>
+      </div></article><article class="press" id="s26">
+      <div class="gutter"><span class="step">26</span><span class="btn">A</span><span class="lat">18s · 634 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether moving upward onto the concentric tile changes the room.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up onto the concentric tile, possibly triggering a room change.</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(4,2) <em>→</em> (4,3)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld na"><span class="fn">room changed</span><span class="fv">· <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (4,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (4,3) in room 2. <span class="was">was: The entity is currently at (3,3) in room 2.</span></li></ul></div>
+      </div></article><article class="press" id="s27">
+      <div class="gutter"><span class="step">27</span><span class="btn">B</span><span class="lat">25s · 727 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether Button B still moves the entity right from the current position.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to the adjacent tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(5,3) <em>→</em> (5,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(4,3) → (5,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button A did not move the entity upward from (4,3), contradicting the expectation that it would reach (4,2).</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_a</code> Button A can attempt upward movement but was blocked at (4,3) in room 2. <span class="was">was: Button A usually attempts upward movement, but it can be blocked by the tile above.</span></li></ul></div>
+      </div></article><article class="press" id="s28">
+      <div class="gutter"><span class="step">28</span><span class="btn">A</span><span class="lat">19s · 616 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A will move the entity upward into the traversable tile above.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up one tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(5,2) <em>→</em> (5,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(5,3) → (5,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st suspect">suspect</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_a</code> Button A moves the entity one square upward when the destination is traversable.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (5,3) in room 2. <span class="was">was: The entity is currently at (4,3) in room 2.</span></li><li><span class="op">≈</span> <span class="st hypothesis">hypothesis</span> <code>concentric_exit</code> The room 2 concentric tile is at (4,2), and approaching it may change rooms. <span class="was">was: The room 2 concentric tile is at (4,2), and approaching it from the left may change rooms.</span></li></ul></div>
+      </div></article><article class="press" id="s29">
+      <div class="gutter"><span class="step">29</span><span class="btn">A</span><span class="lat">21s · 810 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves the entity one square upward when the destination is traversable.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up one tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(5,1) <em>→</em> (5,1)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(5,2) → (5,1)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_a</code> Button A moves the entity one square upward when the destination is traversable.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (5,2) in room 2. <span class="was">was: The entity is currently at (5,3) in room 2.</span></li><li><span class="op">≈</span> <span class="st hypothesis">hypothesis</span> <code>concentric_exit</code> The room 2 concentric tile is at (3,1), and approaching it may change rooms. <span class="was">was: The room 2 concentric tile is at (4,2), and approaching it may change rooms.</span></li></ul></div>
+      </div></article><article class="press" id="s30">
+      <div class="gutter"><span class="step">30</span><span class="btn">D</span><span class="lat">24s · 652 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button D will move the entity left toward the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left one tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(4,1) <em>→</em> (4,1)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(5,1) → (4,1)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (5,1) in room 2. <span class="was">was: The entity is currently at (5,2) in room 2.</span></li></ul></div>
+      </div></article><article class="press" id="s31">
+      <div class="gutter"><span class="step">31</span><span class="btn">D</span><span class="lat">24s · 745 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Find out whether stepping onto the concentric tile changes rooms.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left onto the concentric tile, possibly entering another room.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,1) <em>→</em> (3,1)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld na"><span class="fn">room changed</span><span class="fv">· <em>→</em> yes</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(4,1) → (3,1) <span class="tag solved">room ended</span></p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room2_pos</code> The entity is currently at (4,1) in room 2. <span class="was">was: The entity is currently at (5,1) in room 2.</span></li><li><span class="op">≈</span> <span class="st hypothesis">hypothesis</span> <code>concentric_exit</code> The room 2 concentric tile is at (3,1), and stepping onto it may change rooms. <span class="was">was: The room 2 concentric tile is at (3,1), and approaching it may change rooms.</span></li></ul></div>
+      </div></article></section><section class="room" id="room3"><header class="roomhead"><div><h2>Room 3 · the straight line</h2><p class="meta">39 presses · 5 sent back · not finished</p></div><div class="map" style="grid-template-columns:repeat(5,1fr)"><div class="cell solid" title="(0,0) #"></div><div class="cell solid" title="(1,0) #"></div><div class="cell rings" title="(2,0) O">◎</div><div class="cell solid" title="(3,0) #"></div><div class="cell solid" title="(4,0) #"></div><div class="cell solid" title="(0,1) #"></div><div class="cell floor" title="(1,1) ."></div><div class="cell floor" title="(2,1) ."></div><div class="cell floor" title="(3,1) ."></div><div class="cell solid" title="(4,1) #"></div><div class="cell solid" title="(0,2) #"></div><div class="cell floor" title="(1,2) ."></div><div class="cell spokes death" title="(2,2) X · sent back 5×">✳<b>5</b></div><div class="cell floor" title="(3,2) ."></div><div class="cell solid" title="(4,2) #"></div><div class="cell solid" title="(0,3) #"></div><div class="cell floor" title="(1,3) ."></div><div class="cell floor" title="(2,3) ."></div><div class="cell floor" title="(3,3) ."></div><div class="cell solid" title="(4,3) #"></div><div class="cell solid" title="(0,4) #"></div><div class="cell floor" title="(1,4) ."></div><div class="cell floor start" title="(2,4) . start"><i>S</i></div><div class="cell floor" title="(3,4) ."></div><div class="cell solid" title="(4,4) #"></div></div></header><article class="press" id="s32">
+      <div class="gutter"><span class="step">32</span><span class="btn">A</span><span class="lat">25s · 715 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A will move the entity one square upward toward the radial tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up to (2,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(2,3) <em>→</em> (2,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,4) → (2,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>concentric_exit</code> Stepping onto room 2's concentric tile at (3,1) changes rooms.</li><li><span class="op">+</span> <span class="st confirmed">confirmed</span> <code>room3_layout</code> The entity is at (2,4) in room 3, with the radial tile at (2,2) and concentric tile at (2,0).</li><li><span class="op">+</span> <span class="st hypothesis">hypothesis</span> <code>btn_a_room3</code> Button A should move upward from (2,4) to (2,3) in room 3.</li></ul></div>
+      </div></article><article class="press died" id="s33">
+      <div class="gutter"><span class="step">33</span><span class="btn">A</span><span class="lat">22s · 736 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves the entity upward onto the radial tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up to (2,2).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,2) <em>→</em> (2,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag death">sent back</span> reached (2,2), ended at (2,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st superseded">superseded</span> <code>room2_pos</code> The entity is currently at (4,1) in room 2.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_layout</code> The entity is in room 3, with the radial tile at (2,2) and concentric tile at (2,0). <span class="was">was: The entity is at (2,4) in room 3, with the radial tile at (2,2) and concentric tile at (2,0).</span></li><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_a_room3</code> Button A moves upward from (2,4) to (2,3) and should continue to (2,2).</li></ul></div>
+      </div></article><article class="press" id="s34">
+      <div class="gutter"><span class="step">34</span><span class="btn">B</span><span class="lat">36s · 1009 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button B will move the entity one square right from (2,4) in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (3,4).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,4) <em>→</em> (3,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,4) → (3,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button A did not move the entity from (2,3) to (2,2); it ended at (2,4), with (2,2) listed as came_from.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st suspect">suspect</span> <code>btn_a</code> Button A usually moves the entity one square upward when the destination is traversable, but room 3 has an exception near the radial tile.</li><li><span class="op">+</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3.</li><li><span class="op">−</span> <code>room2_pos</code> <span class="was">The entity is currently at (4,1) in room 2.</span></li><li><span class="op">−</span> <code>btn_a_room3</code> <span class="was">Button A moves upward from (2,4) to (2,3) and should continue to (2,2).</span></li></ul></div>
+      </div></article><article class="press" id="s35">
+      <div class="gutter"><span class="step">35</span><span class="btn">A</span><span class="lat">23s · 742 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves the entity one square upward in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (3,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,4) → (3,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,4) in room 3. <span class="was">was: The entity is currently at (2,4) in room 3.</span></li></ul></div>
+      </div></article><article class="press" id="s36">
+      <div class="gutter"><span class="step">36</span><span class="btn">D</span><span class="lat">22s · 707 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button D will move the entity one square left toward the radial tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (2,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(2,3) <em>→</em> (2,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (2,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,3) in room 3 after step 36. <span class="was">was: The entity is currently at (3,4) in room 3.</span></li></ul></div>
+      </div></article><article class="press died" id="s37">
+      <div class="gutter"><span class="step">37</span><span class="btn">A</span><span class="lat">24s · 708 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A will move the entity upward onto the radial tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (2,2).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,2) <em>→</em> (2,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag death">sent back</span> reached (2,2), ended at (2,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,3) in room 3 after step 37. <span class="was">was: The entity is currently at (3,3) in room 3 after step 36.</span></li></ul></div>
+      </div></article><article class="press" id="s38">
+      <div class="gutter"><span class="step">38</span><span class="btn">D</span><span class="lat">31s · 1044 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button D moves the entity one square left when traversable.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (1,4).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(1,4) <em>→</em> (1,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,4) → (1,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button A moved the entity from (2,3) to (2,4), contradicting the expectation that it moves upward.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_a</code> Button A often moves upward, but in room 3 it may move downward or behave differently near the radial tile. <span class="was">was: Button A usually moves the entity one square upward when the destination is traversable, but room 3 has an exception near the radial tile.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3 after step 38. <span class="was">was: The entity is currently at (2,3) in room 3 after step 37.</span></li></ul></div>
+      </div></article><article class="press" id="s39">
+      <div class="gutter"><span class="step">39</span><span class="btn">A</span><span class="lat">20s · 716 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether A moves the entity upward from the lower-left area of room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (1,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(1,3) <em>→</em> (1,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(1,4) → (1,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_a</code> Button A often moves upward, but in room 3 it may behave differently near the radial tile. <span class="was">was: Button A often moves upward, but in room 3 it may move downward or behave differently near the radial tile.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_b</code> Button B moves one square right when traversable. <span class="was">was: Button B moves the entity one square right when the destination is traversable.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>pos</code> The entity entered room 2 at (5,3), then later reached room 3. <span class="was">was: The entity entered room 2 after step 5 at (5,3).</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_c</code> Button C moves one square downward when traversable. <span class="was">was: Button C moves the entity one square downward when traversable.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_d</code> Button D moves one square left when traversable. <span class="was">was: Button D moves the entity one square left when the destination is traversable.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>concentric_exit</code> Stepping onto room 2's concentric tile changes rooms. <span class="was">was: Stepping onto room 2's concentric tile at (3,1) changes rooms.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_layout</code> Room 3 has radial tile at (2,2) and concentric tile at (2,0). <span class="was">was: The entity is in room 3, with the radial tile at (2,2) and concentric tile at (2,0).</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (1,4) in room 3. <span class="was">was: The entity is currently at (2,4) in room 3 after step 38.</span></li></ul></div>
+      </div></article><article class="press" id="s40">
+      <div class="gutter"><span class="step">40</span><span class="btn">A</span><span class="lat">20s · 680 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves the entity one square upward in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (1,2).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(1,2) <em>→</em> (1,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(1,3) → (1,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st suspect">suspect</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_a</code> Button A moves one square upward when traversable, including in room 3.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (1,3) in room 3. <span class="was">was: The entity is currently at (1,4) in room 3.</span></li></ul></div>
+      </div></article><article class="press died" id="s41">
+      <div class="gutter"><span class="step">41</span><span class="btn">B</span><span class="lat">19s · 660 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button B moves the entity one square right toward the room 3 concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (2,2).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,2) <em>→</em> (2,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag death">sent back</span> reached (2,2), ended at (2,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (1,2) in room 3. <span class="was">was: The entity is currently at (1,3) in room 3.</span></li></ul></div>
+      </div></article><article class="press" id="s42">
+      <div class="gutter"><span class="step">42</span><span class="btn">A</span><span class="lat">26s · 757 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves the entity one square upward in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (2,3).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(2,3) <em>→</em> (2,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,4) → (2,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Step 42 contradicted the expected rightward movement and prior position; Button B produced a room-3 relocation to (2,4).</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_a</code> Button A usually moves one square upward when traversable, including in room 3.</li><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st suspect">suspect</span> <code>btn_b</code> Button B moves one square right when traversable, but behaved anomalously in room 3 on step 42.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3. <span class="was">was: The entity is currently at (1,2) in room 3.</span></li></ul></div>
+      </div></article><article class="press died" id="s43">
+      <div class="gutter"><span class="step">43</span><span class="btn">A</span><span class="lat">23s · 722 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether A continues moving the entity upward in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves to (2,2).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,2) <em>→</em> (2,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag death">sent back</span> reached (2,2), ended at (2,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,3) in room 3 after step 43. <span class="was">was: The entity is currently at (2,4) in room 3.</span></li></ul></div>
+      </div></article><article class="press" id="s44">
+      <div class="gutter"><span class="step">44</span><span class="btn">A</span><span class="lat">30s · 933 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether A moves the entity from the bottom center toward the room's upper path.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity may move along the central column.</p>
+        <div class="fields"><div class="fld na"><span class="fn">end position</span><span class="fv">· <em>→</em> (2,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,4) → (2,3)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The previous A press moved the entity to (2,4), not the predicted (2,2).</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st suspect">suspect</span> <code>btn_a</code> Button A has inconsistent movement behavior in room 3 and cannot yet be assigned a reliable direction.</li><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_b</code> Button B often moves one square right when traversable, but can behave anomalously. <span class="was">was: Button B moves one square right when traversable, but behaved anomalously in room 3 on step 42.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3. <span class="was">was: The entity is currently at (2,3) in room 3 after step 43.</span></li></ul></div>
+      </div></article><article class="press died" id="s45">
+      <div class="gutter"><span class="step">45</span><span class="btn">A</span><span class="lat">26s · 755 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>In room 3, button A moves the entity one square upward.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves onto the radial tile.</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,2) <em>→</em> (2,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag death">sent back</span> reached (2,2), ended at (2,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The entity was at (2,3), not (2,4), after the previous press.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st suspect">suspect</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_a</code> In room 3, button A moves the entity one square upward when traversable.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,3) in room 3. <span class="was">was: The entity is currently at (2,4) in room 3.</span></li></ul></div>
+      </div></article><article class="press" id="s46">
+      <div class="gutter"><span class="step">46</span><span class="btn">C</span><span class="lat">22s · 837 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>In room 3, button C moves the entity one square upward.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves from (2,4) to (2,3).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,3) <em>→</em> (2,4)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (2,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button A moved downward in room 3, contradicting the prior belief that A moved upward.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_a</code> In room 3, button A moves the entity one square downward when traversable.</li><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_c</code> Button C moves one square downward in room 2 and is hypothesized to move upward in room 3.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3 after step 46. <span class="was">was: The entity is currently at (2,3) in room 3.</span></li></ul></div>
+      </div></article><article class="press" id="s47">
+      <div class="gutter"><span class="step">47</span><span class="btn">D</span><span class="lat">20s · 670 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button D will move the entity one square left in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves from (2,4) to (1,4).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(1,4) <em>→</em> (1,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,4) → (1,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3 before step 48. <span class="was">was: The entity is currently at (2,4) in room 3 after step 46.</span></li></ul></div>
+      </div></article><article class="press" id="s48">
+      <div class="gutter"><span class="step">48</span><span class="btn">C</span><span class="lat">19s · 715 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>In room 3, button C moves the entity one square upward when traversable.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves from (1,4) to (1,3).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(1,3) <em>→</em> (1,4)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (1,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (1,4) in room 3 before step 49. <span class="was">was: The entity is currently at (2,4) in room 3 before step 48.</span></li></ul></div>
+      </div></article><article class="press" id="s49">
+      <div class="gutter"><span class="step">49</span><span class="btn">B</span><span class="lat">21s · 739 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>In room 3, button B moves the entity one square right when traversable.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves from (1,4) to (2,4).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(2,4) <em>→</em> (2,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(1,4) → (2,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button C did not move upward from (1,4), contradicting the hypothesis that C moves upward in room 3.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_c</code> Button C does not move the entity upward in room 3.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (1,4) in room 3 before step 50. <span class="was">was: The entity is currently at (1,4) in room 3 before step 49.</span></li></ul></div>
+      </div></article><article class="press" id="s50">
+      <div class="gutter"><span class="step">50</span><span class="btn">C</span><span class="lat">29s · 880 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether button C moves the entity upward from (2,4) in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity may move upward one square.</p>
+        <div class="fields"><div class="fld na"><span class="fn">end position</span><span class="fv">· <em>→</em> (2,4)</span></div><div class="fld na"><span class="fn">position changed</span><span class="fv">· <em>→</em> no</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (2,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3 before step 51. <span class="was">was: The entity is currently at (1,4) in room 3 before step 50.</span></li></ul></div>
+      </div></article><article class="press" id="s51">
+      <div class="gutter"><span class="step">51</span><span class="btn">C</span><span class="lat">36s · 1057 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether button C can move the entity upward from the bottom row.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity may move upward one square.</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,3) <em>→</em> (2,4)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (2,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button C previously produced no movement from (2,4), conflicting with the hypothesis that it moves upward.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_c</code> Button C may move the entity upward, but the previous attempt at (2,4) produced no movement.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3 before step 52. <span class="was">was: The entity is currently at (2,4) in room 3 before step 51.</span></li></ul></div>
+      </div></article><article class="press" id="s52">
+      <div class="gutter"><span class="step">52</span><span class="btn">B</span><span class="lat">27s · 838 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether button B moves the entity one square right in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (3,4).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,4) <em>→</em> (3,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,4) → (3,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st hypothesis">hypothesis</span> <code>btn_c</code> Button C produced no movement from (2,4) in room 3, so its upward-movement behavior is unconfirmed. <span class="was">was: Button C may move the entity upward, but the previous attempt at (2,4) produced no movement.</span></li></ul></div>
+      </div></article><article class="press" id="s53">
+      <div class="gutter"><span class="step">53</span><span class="btn">C</span><span class="lat">31s · 763 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button C may move the entity one square upward in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up to (3,3).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,4)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (3,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_b</code> Button B moves one square right when traversable, but can behave anomalously. <span class="was">was: Button B often moves one square right when traversable, but can behave anomalously.</span></li><li><span class="op">≈</span> <span class="st hypothesis">hypothesis</span> <code>btn_c</code> Button C may move the entity one square upward when traversable. <span class="was">was: Button C produced no movement from (2,4) in room 3, so its upward-movement behavior is unconfirmed.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_layout</code> Room 3 has radial tile at (3,3) and concentric tile at (3,1). <span class="was">was: Room 3 has radial tile at (2,2) and concentric tile at (2,0).</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,4) in room 3 before step 53. <span class="was">was: The entity is currently at (2,4) in room 3 before step 52.</span></li></ul></div>
+      </div></article><article class="press" id="s54">
+      <div class="gutter"><span class="step">54</span><span class="btn">B</span><span class="lat">24s · 893 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether button B moves the entity one square right in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (4,4).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(4,4) <em>→</em> (3,4)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (3,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button C did not move the entity from (3,4), contradicting the upward-movement hypothesis.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_b</code> Button B usually moves one square right when traversable. <span class="was">was: Button B moves one square right when traversable, but can behave anomalously.</span></li><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st suspect">suspect</span> <code>btn_c</code> Button C may move the entity one square upward when traversable, but it did not move from (3,4) on step 53.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,4) in room 3 before step 54. <span class="was">was: The entity is currently at (3,4) in room 3 before step 53.</span></li></ul></div>
+      </div></article><article class="press" id="s55">
+      <div class="gutter"><span class="step">55</span><span class="btn">D</span><span class="lat">26s · 789 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether button D moves the entity left from (3,4) in room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves left to (2,4).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(2,4) <em>→</em> (2,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,4) → (2,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button B did not move right from (3,4), contradicting the expectation that it usually moves right there.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_b</code> Button B often moves one square right, but can be blocked or context-dependent. <span class="was">was: Button B usually moves one square right when traversable.</span></li><li><span class="op">≈</span> <span class="st suspect">suspect</span> <code>btn_c</code> Button C may move the entity upward when traversable, but it did not move from (3,4) on step 53. <span class="was">was: Button C may move the entity one square upward when traversable, but it did not move from (3,4) on step 53.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,4) in room 3 before step 55. <span class="was">was: The entity is currently at (3,4) in room 3 before step 54.</span></li></ul></div>
+      </div></article><article class="press" id="s56">
+      <div class="gutter"><span class="step">56</span><span class="btn">C</span><span class="lat">20s · 723 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>In room 3, button C moves the entity one square upward when traversable.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up to (2,3).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(2,3) <em>→</em> (2,4)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld bad"><span class="fn">returned to start</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (2,4)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st suspect">suspect</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_c</code> In room 3, button C moves the entity one square upward when traversable.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3 before step 56. <span class="was">was: The entity is currently at (3,4) in room 3 before step 55.</span></li></ul></div>
+      </div></article><article class="press" id="s57">
+      <div class="gutter"><span class="step">57</span><span class="btn">B</span><span class="lat">21s · 783 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>In room 3, button B will move the entity one square right from (2,4).</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves right to (3,4).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,4) <em>→</em> (3,4)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(2,4) → (3,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Button C did not move the entity upward from (2,4), contrary to the earlier upward-movement hypothesis.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st suspect">suspect</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_b</code> In room 3, button B is expected to move one square right when traversable.</li><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_c</code> In room 3, button C does not move the entity upward from (2,4).</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (2,4) in room 3 before step 58. <span class="was">was: The entity is currently at (2,4) in room 3 before step 56.</span></li></ul></div>
+      </div></article><article class="press" id="s58">
+      <div class="gutter"><span class="step">58</span><span class="btn">C</span><span class="lat">24s · 880 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button C moves the entity upward when the square above is traversable.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up onto the radial tile at (3,3).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,4)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">yes <em>→</em> no</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span><span class="tag blocked">blocked</span> stayed at (3,4)</p>
+        <p class="flag"><span class="lbl">it flagged</span>Step 57 showed button C did not move upward from (2,4), conflicting with the general upward-movement hypothesis.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_b</code> In room 3, button B moves one square right when traversable.</li><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_c</code> Button C may move the entity upward when traversable, but this was not observed from (2,4).</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,4) in room 3 before step 59. <span class="was">was: The entity is currently at (2,4) in room 3 before step 58.</span></li></ul></div>
+      </div></article><article class="press" id="s59">
+      <div class="gutter"><span class="step">59</span><span class="btn">A</span><span class="lat">25s · 1072 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button A moves downward, so from the bottom row it should be blocked.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity remains at (3,4).</p>
+        <div class="fields"><div class="fld bad"><span class="fn">end position</span><span class="fv">(3,4) <em>→</em> (3,3)</span></div><div class="fld bad"><span class="fn">position changed</span><span class="fv">no <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,4) → (3,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_c</code> Button C does not move the entity upward from the current bottom-row position.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,4) in room 3 before step 60. <span class="was">was: The entity is currently at (3,4) in room 3 before step 59.</span></li></ul></div>
+      </div></article><article class="press" id="s60">
+      <div class="gutter"><span class="step">60</span><span class="btn">A</span><span class="lat">21s · 679 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether button A moves the entity upward toward the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves from (3,3) to (3,2).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (3,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>btn_a</code> In room 3, button A moves the entity one square upward when traversable. <span class="was">was: In room 3, button A moves the entity one square downward when traversable.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,3) in room 3 after step 60. <span class="was">was: The entity is currently at (3,4) in room 3 before step 60.</span></li></ul></div>
+      </div></article><article class="press" id="s61">
+      <div class="gutter"><span class="step">61</span><span class="btn">A</span><span class="lat">20s · 684 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Press A to move onto the concentric tile and test whether it exits room 3.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves from (3,2) to (3,1) and enters another room.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,1) <em>→</em> (3,1)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld bad"><span class="fn">room changed</span><span class="fv">yes <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,2) → (3,1)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>concentric_exit</code> Stepping onto a room's concentric tile changes rooms. <span class="was">was: Stepping onto room 2's concentric tile changes rooms.</span></li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,2) in room 3 after step 61. <span class="was">was: The entity is currently at (3,3) in room 3 after step 60.</span></li></ul></div>
+      </div></article><article class="press" id="s62">
+      <div class="gutter"><span class="step">62</span><span class="btn">C</span><span class="lat">24s · 952 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button C moves the entity one square downward when traversable.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves from (3,1) to (3,2).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,1) → (3,2)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The entity reached the concentric tile at (3,1), but the room did not change.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>btn_c</code> Button C moves one square downward when traversable.</li><li><span class="op">~</span> <span class="st confirmed">confirmed</span> <em>→</em> <span class="st suspect">suspect</span> <code>concentric_exit</code> Stepping onto a room's concentric tile does not always immediately change rooms.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,1) in room 3. <span class="was">was: The entity is currently at (3,2) in room 3 after step 61.</span></li></ul></div>
+      </div></article><article class="press" id="s63">
+      <div class="gutter"><span class="step">63</span><span class="btn">A</span><span class="lat">20s · 769 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Pressing A from (3,2) will step onto the concentric tile and trigger the room transition.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity enters the next room.</p>
+        <div class="fields"><div class="fld na"><span class="fn">end position</span><span class="fv">· <em>→</em> (3,1)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld na"><span class="fn">returned to start</span><span class="fv">· <em>→</em> no</span></div><div class="fld bad"><span class="fn">room changed</span><span class="fv">yes <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,2) → (3,1)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>btn_c</code> Button C moves one square downward when traversable.</li><li><span class="op">~</span> <span class="st suspect">suspect</span> <em>→</em> <span class="st hypothesis">hypothesis</span> <code>concentric_exit</code> Stepping onto room 3's concentric tile triggers a room transition.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,2) in room 3. <span class="was">was: The entity is currently at (3,1) in room 3.</span></li></ul></div>
+      </div></article><article class="press" id="s64">
+      <div class="gutter"><span class="step">64</span><span class="btn">C</span><span class="lat">24s · 813 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Move back toward the radial tile to test whether activating it is required before the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves one square downward.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,1) → (3,2)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The concentric tile did not cause a room transition when entered.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">~</span> <span class="st hypothesis">hypothesis</span> <em>→</em> <span class="st confirmed">confirmed</span> <code>concentric_exit</code> Stepping onto room 3's concentric tile does not immediately trigger a room transition.</li><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,1) in room 3 before this press. <span class="was">was: The entity is currently at (3,2) in room 3.</span></li></ul></div>
+      </div></article><article class="press" id="s65">
+      <div class="gutter"><span class="step">65</span><span class="btn">C</span><span class="lat">20s · 648 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether stepping onto the radial tile triggers a room transition.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves one square downward onto the radial tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld na"><span class="fn">room changed</span><span class="fv">· <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,2) → (3,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,2) in room 3 before this press. <span class="was">was: The entity is currently at (3,1) in room 3 before this press.</span></li></ul></div>
+      </div></article><article class="press" id="s66">
+      <div class="gutter"><span class="step">66</span><span class="btn">A</span><span class="lat">21s · 688 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>In room 3, button A moves the entity one square upward toward the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves one square upward.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (3,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,3) in room 3 before this press. <span class="was">was: The entity is currently at (3,2) in room 3 before this press.</span></li></ul></div>
+      </div></article><article class="press" id="s67">
+      <div class="gutter"><span class="step">67</span><span class="btn">A</span><span class="lat">21s · 643 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Testing whether stepping onto the room 3 concentric tile triggers progression.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves one square upward onto the concentric tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,1) <em>→</em> (3,1)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,2) → (3,1)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,2) in room 3 before this press. <span class="was">was: The entity is currently at (3,3) in room 3 before this press.</span></li></ul></div>
+      </div></article><article class="press" id="s68">
+      <div class="gutter"><span class="step">68</span><span class="btn">C</span><span class="lat">34s · 1013 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Button C moves the entity one square downward from the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity returns to the tile below the concentric tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,1) → (3,2)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,1) in room 3 before this press. <span class="was">was: The entity is currently at (3,2) in room 3 before this press.</span></li></ul></div>
+      </div></article><article class="press" id="s69">
+      <div class="gutter"><span class="step">69</span><span class="btn">C</span><span class="lat">19s · 748 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Stepping onto room 3's radial tile may trigger the room transition.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves down onto the radial tile.</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,3) <em>→</em> (3,3)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld bad"><span class="fn">room changed</span><span class="fv">yes <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,2) → (3,3)</p>
+        
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,2) in room 3 before this press. <span class="was">was: The entity is currently at (3,1) in room 3 before this press.</span></li></ul></div>
+      </div></article><article class="press" id="s70">
+      <div class="gutter"><span class="step">70</span><span class="btn">A</span><span class="lat">20s · 717 tok</span></div>
+      <div class="content">
+        <p class="hyp"><span class="lbl">hypothesis</span>Test whether moving upward from the radial tile leads toward the concentric tile.</p>
+        <p class="pred"><span class="lbl">prediction</span>The entity moves up to (3,2).</p>
+        <div class="fields"><div class="fld ok"><span class="fn">end position</span><span class="fv">(3,2) <em>→</em> (3,2)</span></div><div class="fld ok"><span class="fn">position changed</span><span class="fv">yes <em>→</em> yes</span></div><div class="fld ok"><span class="fn">returned to start</span><span class="fv">no <em>→</em> no</span></div><div class="fld ok"><span class="fn">room changed</span><span class="fv">no <em>→</em> no</span></div></div>
+        <p class="what"><span class="lbl">what happened</span>(3,3) → (3,2)</p>
+        <p class="flag"><span class="lbl">it flagged</span>The entity reached (3,3), but the room did not change as predicted.</p>
+        <div class="memwrap"><span class="lbl">memory it wrote</span><ul class="mem"><li><span class="op">≈</span> <span class="st confirmed">confirmed</span> <code>room3_pos</code> The entity is currently at (3,3) in room 3 after step 70. <span class="was">was: The entity is currently at (3,2) in room 3 before this press.</span></li><li><span class="op">+</span> <span class="st confirmed">confirmed</span> <code>step70</code> Moving onto the radial tile did not change rooms.</li></ul></div>
+      </div></article></section>
+</main>

@@ -7,8 +7,9 @@ question is whether it acquires a world model, detects the change, revises the
 right belief — and whether the second revision is cheaper than the first.
 
 Read in this order: `README.md` (manual), `REPORT.md` (story), `RESEARCH_LOG.md`
-(dated lab notebook, E0–E16). Most "why is it like this" questions are answered
-there, usually with the bug that motivated it.
+(lab notebook, volume 2: the instrument as it stands, standing results, entries
+from E21) and `RESEARCH_LOG_E0-E20.md` (volume 1, the history). Most "why is it
+like this" questions are answered there, usually with the bug that motivated it.
 
 ## Commands
 
@@ -29,7 +30,7 @@ curriculum that quietly teaches nothing.
 | path | what |
 |---|---|
 | `src/engine/` | deterministic world: `types.ts` (glyphs, `ENGINE_VERSION`), `engine.ts` (`step`, rules), `levels.ts` (the 11 rooms, `INTERVENTIONS_BEFORE_LEVELS` — **the curriculum is the experiment**), `observation.ts` (what the agent is shown + `auditForLeaks`), `solver.ts` (BFS, `banned` option) |
-| `src/agent/` | `prompt.ts` (system/user prompt), `schema.ts` (reply validation, 4 prediction fields), `memory.ts` (flat vs structured stores) |
+| `src/agent/` | `prompt.ts` (system/user prompt), `schema.ts` (reply validation, 4 prediction fields), `memory.ts` (flat / structured stores, and `native` = no store, codex keeps its own conversation) |
 | `src/metrics.ts` | `resolveBoth` (every press resolved under both rule sets → `divergent_fields`), `computeMetrics` (R1 ∧ R2 recovery, strict R1, delays, stale-rule counts, `collateralDrop`; scored per scheduled change in `changes[]`, top-level = the first) |
 | `src/runner.ts`, `src/experiment.ts` | browser run loop; declared protocols |
 | `src/ui/`, `src/App.tsx` | Play / Replay / Behaviour / Wire log tabs |
@@ -55,7 +56,9 @@ with explicit `.ts` extensions.
   `came_from`, that goes in the research log, not in a prompt tweak. Harness bugs
   are things that *withhold* an observation a person would have had (E7, E9, E13).
 - **The codex subject is sealed** (`--sandbox read-only`, empty temp `-C`,
-  `--ignore-user-config --ignore-rules --ephemeral`, prompt over stdin). Any
+  `--ignore-user-config --ignore-rules --ephemeral`, prompt over stdin). The
+  `native` arm drops `--ephemeral` only: one persisted session per run, resumed
+  by id, sandbox and root inherited (checked). Any
   `seal_alarm` whose item is a command/file/search makes the run non-evidence.
   Planning/todo items are noise — do not report them as a broken seal.
 - **Run logs are data.** Never edit a recorded `.jsonl`; correct the prose that
@@ -72,8 +75,8 @@ with explicit `.ts` extensions.
 
 ## Conventions
 
-- `RESEARCH_LOG.md` is append-only, newest at the bottom, entries numbered
-  `E<n>` with the date. Tag every claim `[measured]`, `[derived]` or
+- `RESEARCH_LOG.md` (volume 2, from E21; volume 1 is `RESEARCH_LOG_E0-E20.md`)
+  is append-only, newest at the bottom, entries numbered `E<n>` with the date. Tag every claim `[measured]`, `[derived]` or
   `[assumption]`. Record what did not work. Corrections to earlier entries are
   added as a dated note under the old entry, never by rewriting history.
 - Editing a room: keep `requires` honest; `npm run verify` bans each required
@@ -92,12 +95,11 @@ with explicit `.ts` extensions.
 
 ## Where things stand (2026-09-19, branch `aura-v4`)
 
-Engine v5 (uncommitted on top of `8f9622f`): rooms 9–11 and the swap back
-before room 10, per-change metrics, strict R1 — designed in E19 after the two
-v4 runs of E18. Three v4 logs replay exactly on v5 and stay in `runs/`:
-`codex-v4-…T1208` (budget 25, E17), `codex-v4-b100-…T1413` (budget 100,
-recovered + transferred), `gptoss20b-v4-…T1333` (never saw evidence, stopped
-by hand in room 8). Rooms 6 and 8 still never deflect on their reference
-route — declared, not fixed, so the v4 logs stay live. Queued: the first v5
-run (codex, budget 100, expectations pre-registered in E19); the blame ledger;
-stable arm; flat arm (never run on any engine).
+Engine v5, eleven rooms, two swaps, three memory arms. The finding that ends
+volume 1 (E20): on the same subject (codex · gpt-5.6-luna) the structured
+store never attributes a return-to-start to the tile in three runs, while the
+subject's own conversation (`native`) does so after one death and finishes
+11/11 with both changes recovered. Five logs are committed as evidence (see
+`.gitignore`). Next, in order: flat arm on codex; structured arm with a
+neutral example id; stable and notified arms; an API subject; recording
+codex's reasoning items. No flat-memory run exists on any engine.

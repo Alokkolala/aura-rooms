@@ -72,6 +72,10 @@ export interface ProviderReply {
   toolUses?: number;
   /** codex only: what those items were, so an alarm can be diagnosed */
   toolItems?: string[];
+  /** codex only: the conversation this reply belongs to (native arm) */
+  threadId?: string;
+  /** codex only: reasoning tokens inside `usage.output`, as codex reports them */
+  reasoningTokens?: number;
   /** codex only: tokens the agent harness spent before reaching our prompt */
   scaffoldTokens?: number;
 }
@@ -248,11 +252,40 @@ async function callOpenAICompatible(
  * codex arm a conversation history the API arms do not have, and "what the
  * agent knows" would stop being "what is in its memory".
  *
+ * THE NATIVE ARM DROPS EXACTLY THAT FLAG, ON PURPOSE. With a `CodexSession`
+ * the first press starts a persisted session and every later press resumes it
+ * (`codex exec resume <id>`), so the subject's own conversation is its memory
+ * and the harness holds none. Everything else in the seal stays: `resume`
+ * accepts no `--sandbox` or `-C`, but a resumed session keeps the read-only
+ * policy and the empty working root it was started with — checked by hand on
+ * 2026-09-19 (a write attempt in the resumed turn was rejected by the sandbox).
+ * Such a run is comparable with the other codex arms only, never with an API
+ * arm, and its point is the comparison: same subject, with and without a
+ * memory protocol between it and its own past.
+ *
  * Reading elsewhere on disk is still physically possible under `read-only`, so
  * it is checked rather than assumed: every reply reports `tool_uses`, and a
  * non-zero count on a sealed subject is a finding, not a detail.
  */
-export function codexArgs(model: string, dir: string, outFile: string): string[] {
+/** One persisted codex conversation: `id` is null until the first press has started it. */
+export interface CodexSession {
+  id: string | null;
+  /** the empty working root the session was started in; reused on every resume */
+  dir: string;
+}
+
+export function codexArgs(model: string, dir: string, outFile: string, session?: CodexSession): string[] {
+  if (session?.id)
+    return [
+      'exec', 'resume', session.id,
+      '-m', model,
+      '--skip-git-repo-check',
+      '--ignore-user-config',
+      '--ignore-rules',
+      '--json',
+      '-o', outFile,
+      '-', // the prompt comes on stdin, as always
+    ];
   return [
     'exec',
     '-m', model,
@@ -261,15 +294,15 @@ export function codexArgs(model: string, dir: string, outFile: string): string[]
     '--skip-git-repo-check',
     '--ignore-user-config',
     '--ignore-rules',
-    '--ephemeral',
+    ...(session ? [] : ['--ephemeral']),
     '--json',
     '-o', outFile,
   ];
 }
 
 /** The same flags, with paths quoted, as actually handed to the process. */
-function codexArgv(model: string, dir: string, outFile: string): string[] {
-  return codexArgs(model, dir, outFile).map((a) => (a === dir || a === outFile ? q(a) : a));
+function codexArgv(model: string, dir: string, outFile: string, session?: CodexSession): string[] {
+  return codexArgs(model, dir, outFile, session).map((a) => (a === dir || a === outFile ? q(a) : a));
 }
 
 export interface CodexEventSummary {
@@ -288,6 +321,8 @@ export interface CodexEventSummary {
   toolItems: string[];
   usage: ProviderUsage;
   scaffoldTokens: number;
+  threadId: string | null;
+  reasoningTokens: number;
 }
 
 /** Parse codex's JSONL event stream. Exported so a test can pin the shape. */
@@ -296,6 +331,8 @@ export function summariseCodexEvents(jsonl: string, promptChars: number): CodexE
   let toolUses = 0;
   const toolItems: string[] = [];
   const usage: ProviderUsage = { input: 0, output: 0, cacheRead: 0 };
+  let threadId: string | null = null;
+  let reasoningTokens = 0;
 
   for (const line of jsonl.split(/\r?\n/)) {
     const t = line.trim();
@@ -306,6 +343,7 @@ export function summariseCodexEvents(jsonl: string, promptChars: number): CodexE
     } catch {
       continue; // codex may interleave non-JSON noise; it is not an event
     }
+    if (d.type === 'thread.started' && typeof d.thread_id === 'string') threadId = d.thread_id;
     if (d.type === 'item.completed' && d.item) {
       if (d.item.type === 'agent_message') text = d.item.text ?? text;
       else if (d.item.type !== 'reasoning') {
@@ -317,13 +355,14 @@ export function summariseCodexEvents(jsonl: string, promptChars: number): CodexE
       usage.input = d.usage.input_tokens ?? 0;
       usage.output = d.usage.output_tokens ?? 0;
       usage.cacheRead = d.usage.cached_input_tokens ?? 0;
+      reasoningTokens = d.usage.reasoning_output_tokens ?? 0;
     }
   }
   // Rough, and labelled as rough: ~4 chars per token. It exists to make the
   // size of the agent harness wrapped around the subject visible at a glance,
   // not to be precise.
   const scaffoldTokens = Math.max(0, usage.input - Math.round(promptChars / 4));
-  return { text, toolUses, toolItems, usage, scaffoldTokens };
+  return { text, toolUses, toolItems, usage, scaffoldTokens, threadId, reasoningTokens };
 }
 
 /**
@@ -395,22 +434,30 @@ async function callCodex(
   user: string,
   c: ProviderConfig,
   timeoutMs: number,
+  session?: CodexSession,
 ): Promise<Omit<ProviderReply, 'latencyMs'>> {
-  // A fresh empty directory per press. Never the repository.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-seal-'));
-  const outFile = path.join(dir, 'reply.txt');
+  // An empty working root, never the repository: fresh per press when sealed
+  // per press, one per run for a session. The reply file lives elsewhere so a
+  // session's root stays empty — otherwise press N's reply would be sitting in
+  // the subject's cwd during press N+1.
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'aura-seal-'));
+  const dir = session ? session.dir : scratch;
+  if (session) fs.mkdirSync(dir, { recursive: true });
+  const outFile = path.join(scratch, 'reply.txt');
   // codex has no system/user split, so the two are concatenated. The separator
-  // is inert punctuation and names nothing about the world.
-  const prompt = `${system}\n\n----\n\n${user}`;
+  // is inert punctuation and names nothing about the world. A resumed session
+  // already holds the instruction, so only the turn is sent.
+  const prompt = session?.id ? user : `${system}\n\n----\n\n${user}`;
   try {
     const r = await run(
       process.env.AURA_CODEX_BIN || 'codex',
-      codexArgv(c.model, dir, outFile),
+      codexArgv(c.model, dir, outFile, session),
       prompt,
       timeoutMs,
     );
     const events = r.stdout;
     const summary = summariseCodexEvents(events, prompt.length);
+    if (session && summary.threadId) session.id = summary.threadId;
     const fromFile = fs.existsSync(outFile) ? fs.readFileSync(outFile, 'utf8') : '';
     const text = fromFile.trim() || summary.text;
     if (!text)
@@ -425,9 +472,10 @@ async function callCodex(
       toolUses: summary.toolUses,
       toolItems: summary.toolItems,
       scaffoldTokens: summary.scaffoldTokens,
+      ...(session ? { threadId: session.id ?? undefined, reasoningTokens: summary.reasoningTokens } : {}),
     };
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(scratch, { recursive: true, force: true });
   }
 }
 
@@ -455,7 +503,7 @@ export function resolveConfig(model?: string): ProviderConfig {
 export async function ask(
   system: string,
   user: string,
-  opts: { maxTokens?: number; timeoutMs?: number; model?: string } = {},
+  opts: { maxTokens?: number; timeoutMs?: number; model?: string; codexSession?: CodexSession } = {},
 ): Promise<ProviderReply> {
   // A per-call model override exists so the model can be typed into the UI
   // rather than only set in the environment. It is NOT a live dial: the caller
@@ -468,7 +516,7 @@ export async function ask(
   const t0 = Date.now();
   const out =
     c.provider === 'codex'
-      ? await callCodex(system, user, c, timeoutMs)
+      ? await callCodex(system, user, c, timeoutMs, opts.codexSession)
       : c.provider === 'openai-compatible'
       ? await callOpenAICompatible(system, user, maxTokens, c)
       : await callAnthropic(system, user, maxTokens, c);

@@ -5,7 +5,8 @@
  *   AURA_ENDPOINT=http://localhost:11434/v1 AURA_API_KEY=x AURA_MODEL=llama3.1 npm run campaign
  *
  * Options:
- *   --strategy=flat|structured   (default structured)
+ *   --strategy=flat|structured|native   (default structured; native = codex keeps its own
+ *                                context, no memory store — codex provider only)
  *   --condition=stable|hidden|notified   (default hidden)
  *   --budget=N                   actions per room (default 20)
  *   --rooms=N                    stop after N rooms (default all)
@@ -39,6 +40,7 @@
  * byte, the prompt the next recorded step actually received.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import { DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
@@ -55,7 +57,7 @@ import { applyMemory, emptyMemory, renderMemory, type Memory, type StrategyName 
 import { systemPrompt, userPrompt } from '../src/agent/prompt.ts';
 import { extractJson, validate, PREDICTION_FIELDS, type Prediction } from '../src/agent/schema.ts';
 import { computeMetrics, resolveBoth, scoreField, type StepRecord } from '../src/metrics.ts';
-import { ask, providerConfig, type ProviderReply } from '../server/provider.ts';
+import { ask, providerConfig, type CodexSession, type ProviderReply } from '../server/provider.ts';
 import { CHANGE_NOTICE, type Condition } from '../src/runner.ts';
 
 const arg = (k: string, d?: string) =>
@@ -157,9 +159,11 @@ export function hydrate(records: any[], strategy: StrategyName, condition: Condi
 
   s.globalStep = last.global_step; s.levelStep = last.level_step; s.levelIndex = last.level - 1;
   s.entity = { ...last.researcher.entity_after };
-  s.memory = strategy === 'flat'
-    ? { kind: 'flat', text: last.memory_accepted }
-    : { kind: 'structured', entries: JSON.parse(last.memory_accepted) };
+  s.memory = strategy === 'native'
+    ? { kind: 'native' }
+    : strategy === 'flat'
+      ? { kind: 'flat', text: last.memory_accepted }
+      : { kind: 'structured', entries: JSON.parse(last.memory_accepted) };
   s.lastPrediction = last.prediction; s.lastExpect = last.expect; s.memoryRejected = last.memory_update_rejected;
   s.roomDeaths = deathsIn(last.level);
   const roomChanged = last.level_complete || last.level_step >= budget;
@@ -224,6 +228,16 @@ async function main() {
     process.exit(1);
   }
   console.log(`provider       ${P.label}`);
+  if (STRATEGY === 'native' && P.provider !== 'codex')
+    throw new Error('the native strategy is the subject keeping its own conversation; only the codex provider can do that');
+  // One persisted conversation for the whole run. Its id is recorded on every
+  // press, so a resumed campaign resumes the same conversation.
+  const session: CodexSession | undefined =
+    STRATEGY === 'native'
+      ? { id: prior.filter((r) => r.type === 'step').at(-1)?.call?.thread_id ?? null,
+          dir: path.join(os.tmpdir(), `aura-native-${RUN_ID}`) }
+      : undefined;
+  if (session?.id) console.log(`conversation   ${session.id} (resumed)`);
 
   const system = systemPrompt(STRATEGY);
   const resumedAfter: number[] = prior.filter((r) => r.type === 'run_resume').map((r) => r.from_global_step);
@@ -279,7 +293,7 @@ async function main() {
         // the adapter's default. A lower cap here once truncated a reasoning
         // model's reply mid-JSON (its thinking counts against max_tokens), and
         // the rejection looked like the subject's fault.
-        reply = await ask(system, user);
+        reply = await ask(system, user, { codexSession: session });
       } catch (e: any) {
         console.error(`\nprovider error at step ${s.globalStep + 1}, attempt ${attempt}: ${e.message}`);
         write({ type: 'provider_error', global_step: s.globalStep, attempt, error: String(e.message) });
@@ -366,6 +380,8 @@ async function main() {
         usage: reply.usage,
         ...(reply.toolUses === undefined ? {} : { tool_uses: reply.toolUses, tool_items: reply.toolItems ?? [] }),
         ...(reply.scaffoldTokens === undefined ? {} : { scaffold_tokens: reply.scaffoldTokens }),
+        ...(reply.threadId === undefined ? {} : { thread_id: reply.threadId }),
+        ...(reply.reasoningTokens === undefined ? {} : { reasoning_tokens: reply.reasoningTokens }),
       },
       researcher: {
         true_rules: s.rules, entity_before: before, entity_after: r.state, path: r.path,

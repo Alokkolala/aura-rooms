@@ -12,6 +12,12 @@ import type { Prediction } from './schema.ts';
  * survive in a message history, a reset arm would not actually be reset and the
  * experiment would measure the model's context window instead of its memory.
  *
+ * The `native` arm is the deliberate exception (E20): the subject's own
+ * conversation IS its memory, so its turn carries no store and its instruction
+ * says only that the conversation persists. It exists to measure exactly the
+ * thing the sentence above guards against — what the memory protocol itself
+ * costs — and is comparable with the stored arms only on the same subject.
+ *
  * WHAT IS NOT HERE, AND WHY.
  *
  * The instruction used to end with "the rules of this world are usually stable,
@@ -37,11 +43,16 @@ const COMMON = `You are controlling something inside an unfamiliar game.
 Each turn you see the room as a grid of visual codes, you press exactly one
 button (A, B, C or D), and then you see what happened.
 
-Explore the environment and progress as far as you can.
+Explore the environment and progress as far as you can.`;
 
-Your memory is the only thing that persists from turn to turn. You do not get to
+const PERSIST_STORE = `Your memory is the only thing that persists from turn to turn. You do not get to
 see your earlier messages — only the memory you wrote. If you want to keep
 something, write it into memory.`;
+
+// The native arm keeps its own conversation, so this is all that is true of it.
+// Nothing about how to keep track of things: that is what is under study.
+const PERSIST_NATIVE = `This conversation persists from turn to turn. There is no separate memory to
+write.`;
 
 const FLAT_MEMORY = `Your memory is one block of free text. Replace it in full each turn: whatever
 you return becomes your entire memory, so keep anything you still want.
@@ -65,7 +76,7 @@ Return "memory" as an array of objects with these fields:
 You decide what depends on what. Nothing checks these links for you.
 The whole array must serialise to at most ${MEMORY_BUDGET_CHARS} characters.`;
 
-const RESPONSE = `Reply with a single JSON object and nothing else:
+const response = (withMemory: boolean) => `Reply with a single JSON object and nothing else:
 
 {
   "button": "A" | "B" | "C" | "D",
@@ -77,8 +88,7 @@ const RESPONSE = `Reply with a single JSON object and nothing else:
     "returned_to_start": true | false,
     "room_changed": true | false
   },
-  "memory": <as described above>,
-  "contradiction": "what you just saw that conflicts with what you believed, or null"
+${withMemory ? '  "memory": <as described above>,\n' : ''}  "contradiction": "what you just saw that conflicts with what you believed, or null"
 }
 
 The four fields inside "expect" describe what you think will be on the screen
@@ -100,7 +110,12 @@ else you expect, in your own words.
 Keep hypothesis and prediction to one short sentence each.`;
 
 export function systemPrompt(strategy: StrategyName): string {
-  return [COMMON, strategy === 'flat' ? FLAT_MEMORY : STRUCTURED_MEMORY, RESPONSE].join('\n\n');
+  if (strategy === 'native') return [COMMON, PERSIST_NATIVE, response(false)].join('\n\n');
+  return [
+    `${COMMON}\n\n${PERSIST_STORE}`,
+    strategy === 'flat' ? FLAT_MEMORY : STRUCTURED_MEMORY,
+    response(true),
+  ].join('\n\n');
 }
 
 export function userPrompt(args: {
@@ -144,12 +159,12 @@ export function userPrompt(args: {
         `Compare that with what actually happened below.`,
     );
   }
-  parts.push(
-    `Your memory right now (${mem.length}/${MEMORY_BUDGET_CHARS} characters):`,
-    mem.trim() ? mem : '(empty — this is the first thing you have seen)',
-    `What you can see:`,
-    obsText,
-  );
+  if (memory.kind !== 'native')
+    parts.push(
+      `Your memory right now (${mem.length}/${MEMORY_BUDGET_CHARS} characters):`,
+      mem.trim() ? mem : '(empty — this is the first thing you have seen)',
+    );
+  parts.push(`What you can see:`, obsText);
   if (args.memoryRejected) parts.push(`Note: ${args.memoryRejected}`);
   if (args.lastInvalid)
     parts.push(
