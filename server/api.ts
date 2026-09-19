@@ -2,11 +2,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Plugin } from 'vite';
 
+import { ask, providerConfig } from './provider.ts';
+
 /**
  * Dev-server middleware: the model adapter and the run log.
  *
  * There is deliberately no second process. The API key is read here, in Node,
- * and never reaches the browser, git, or an exported log. When the provider
+ * and never reaches the browser, git, or an exported log: `/api/status`
+ * reports which provider and model are in use and whether credentials are
+ * present, never the credentials themselves. The adapters live in
+ * `./provider.ts`, shared with the headless campaign runner, so a watched run
+ * and a headless run reach the model through exactly the same code. When the provider
  * fails, the failure is returned as a failure — a fabricated agent reply would
  * be indistinguishable from a real one in the transcript, which is the one
  * thing an experiment log must never contain.
@@ -18,6 +24,21 @@ interface AgentRequest {
   system: string;
   user: string;
   maxTokens?: number;
+  /** fixed when the run was created; see the note on `ask` */
+  model?: string;
+}
+
+/** Everything the browser is allowed to know about the model configuration. */
+function publicConfig() {
+  const c = providerConfig();
+  return {
+    provider: c.provider,
+    model: c.model,
+    endpoint: c.endpoint,
+    effort: c.effort,
+    hasKey: c.hasKey,
+    label: c.label,
+  };
 }
 
 function readBody(req: any): Promise<string> {
@@ -39,78 +60,6 @@ function send(res: any, code: number, body: unknown) {
   res.end(s);
 }
 
-function config() {
-  return {
-    model: process.env.AURA_MODEL || 'claude-opus-5',
-    effort: process.env.AURA_EFFORT || 'medium',
-    endpoint: process.env.AURA_ENDPOINT || '',
-    hasKey: Boolean(
-      process.env.AURA_ENDPOINT ? process.env.AURA_API_KEY : process.env.ANTHROPIC_API_KEY,
-    ),
-  };
-}
-
-/** Anthropic Messages API via the official SDK. */
-async function callAnthropic(body: AgentRequest) {
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic();
-  const c = config();
-  const res = await client.messages.create({
-    model: c.model,
-    max_tokens: body.maxTokens ?? 8000,
-    system: body.system,
-    thinking: { type: 'adaptive' },
-    output_config: { effort: c.effort as 'low' | 'medium' | 'high' },
-    messages: [{ role: 'user', content: body.user }],
-  });
-  const text = res.content
-    .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
-  return {
-    text,
-    model: res.model,
-    stopReason: res.stop_reason,
-    usage: {
-      input: res.usage.input_tokens,
-      output: res.usage.output_tokens,
-      cacheRead: res.usage.cache_read_input_tokens ?? 0,
-    },
-  };
-}
-
-/** Any OpenAI-compatible chat/completions endpoint. */
-async function callOpenAICompatible(body: AgentRequest) {
-  const c = config();
-  const res = await fetch(`${c.endpoint.replace(/\/$/, '')}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${process.env.AURA_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: c.model,
-      max_tokens: body.maxTokens ?? 8000,
-      messages: [
-        { role: 'system', content: body.system },
-        { role: 'user', content: body.user },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`.slice(0, 600));
-  const j: any = await res.json();
-  return {
-    text: j.choices?.[0]?.message?.content ?? '',
-    model: j.model ?? c.model,
-    stopReason: j.choices?.[0]?.finish_reason ?? null,
-    usage: {
-      input: j.usage?.prompt_tokens ?? 0,
-      output: j.usage?.completion_tokens ?? 0,
-      cacheRead: 0,
-    },
-  };
-}
-
 export function auraApi(): Plugin {
   return {
     name: 'aura-api',
@@ -122,7 +71,7 @@ export function auraApi(): Plugin {
         if (!url.startsWith('/api/')) return next();
 
         try {
-          if (url === '/api/status') return send(res, 200, config());
+          if (url === '/api/status') return send(res, 200, publicConfig());
 
           if (url === '/api/runs' && req.method === 'GET') {
             const files = fs
@@ -158,16 +107,20 @@ export function auraApi(): Plugin {
           }
 
           if (url === '/api/agent' && req.method === 'POST') {
-            const c = config();
+            const c = publicConfig();
             if (!c.hasKey)
               return send(res, 503, {
                 error:
-                  'No API key on the server. Set ANTHROPIC_API_KEY (or AURA_ENDPOINT + AURA_API_KEY) and restart. Manual play and random-agent mode work without one.',
+                  'No model credentials on the server. Set one of: OPENROUTER_API_KEY, ' +
+                  'ANTHROPIC_API_KEY, AURA_ENDPOINT + AURA_API_KEY, or AURA_PROVIDER=codex. ' +
+                  'Then restart. Manual play and random-agent mode work without any of them.',
               });
             const body: AgentRequest = JSON.parse(await readBody(req));
-            const t0 = Date.now();
-            const out = c.endpoint ? await callOpenAICompatible(body) : await callAnthropic(body);
-            return send(res, 200, { ...out, latencyMs: Date.now() - t0 });
+            const out = await ask(body.system, body.user, {
+              maxTokens: body.maxTokens,
+              model: body.model,
+            });
+            return send(res, 200, out);
           }
 
           return send(res, 404, { error: 'unknown endpoint' });

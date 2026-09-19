@@ -1,11 +1,11 @@
-import { CHANGED_RULES, DEFAULT_RULES, step } from './engine/engine.ts';
+import { CHANGED_RULES, DEFAULT_RULES, goalGlyph, lethalGlyph, step } from './engine/engine.ts';
 import { INTERVENTION_BEFORE_LEVEL, LEVELS } from './engine/levels.ts';
-import { buildObservation, pose, type LastAction, type Observation, type PreviousRoom } from './engine/observation.ts';
+import { buildObservation, lastActionOf, type LastAction, type Observation, type PreviousRoom } from './engine/observation.ts';
 import { ENGINE_VERSION, type Button, type EntityState, type Rules } from './engine/types.ts';
 import { applyMemory, emptyMemory, MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } from './agent/memory.ts';
 import { systemPrompt, userPrompt } from './agent/prompt.ts';
-import { extractJson, validate } from './agent/schema.ts';
-import { computeMetrics, type Metrics, type StepRecord } from './metrics.ts';
+import { extractJson, validate, EMPTY_PREDICTION, PREDICTION_FIELDS, type Prediction } from './agent/schema.ts';
+import { computeMetrics, resolveBoth, scoreField, type Metrics, type StepRecord } from './metrics.ts';
 
 export type Condition = 'stable' | 'hidden' | 'notified';
 export type Driver = 'llm' | 'random' | 'manual';
@@ -19,6 +19,14 @@ export interface RunConfig {
   driver: Driver;
   actionBudgetPerLevel: number;
   seed: number;
+  /**
+   * Model for this run, overriding the server default.
+   *
+   * Part of RunConfig rather than a setting, so it is fixed when the run is
+   * created and written into `run_start` with everything else that defines the
+   * experiment. Changing the subject mid-run would make one log describe two.
+   */
+  model?: string;
   /** free demonstration runs are tagged so they never pool with experiments */
   manualIntervention?: boolean;
 }
@@ -40,10 +48,44 @@ export interface FeedItem {
   step: number;
 }
 
+/**
+ * One model call, recorded exactly as it happened.
+ *
+ * The step records say what the agent DID. This says what was actually sent and
+ * what actually came back, including the calls that pressed no button at all
+ * because the reply would not parse. Those are invisible in the step log by
+ * design — a malformed reply performs no action — and they are precisely the
+ * ones you need when a model is failing on JSON rather than on reasoning.
+ *
+ * Held in memory for the UI. The same information reaches `runs/*.jsonl` as
+ * `prompt_user`, `model_response_raw` and `call` on each step, plus
+ * `invalid_reply` records for the rest.
+ */
+export interface TranscriptEntry {
+  /** call ordinal — not the step number, since a rejected call spends no step */
+  n: number;
+  step: number;
+  level: number;
+  at: string;
+  user: string;
+  raw: string;
+  model: string;
+  latencyMs: number;
+  usage: { input: number; output: number; cacheRead: number };
+  stopReason: string | null;
+  /** codex only: agent items that were not the final message. Must be 0. */
+  toolUses?: number;
+  /** codex only: tokens the agent harness spent before reaching our prompt */
+  scaffoldTokens?: number;
+  status: 'accepted' | 'rejected' | 'error';
+  error?: string;
+  button?: Button;
+}
+
 export interface Meta {
   hypothesis: string;
   prediction: string;
-  predictedPosition: { x: number; y: number } | null;
+  expect: Prediction;
   contradiction: string | null;
 }
 
@@ -64,6 +106,10 @@ export interface RunState {
   feed: FeedItem[];
   /** every step, in order, in the same shape the log uses */
   records: StepRecord[];
+  /** the fixed instruction, identical for every call in this run */
+  systemPrompt: string;
+  /** every model call, in order, successful or not */
+  transcript: TranscriptEntry[];
   running: boolean;
   inFlight: boolean;
   finished: boolean;
@@ -94,7 +140,9 @@ export class Run {
   private memoryRejected: string | null = null;
   private lastInvalid: string | null = null;
   private lastPrediction: string | null = null;
+  private lastExpect: Prediction | null = null;
   private lastPromptSent = '';
+  private lastCall: TranscriptEntry | null = null;
   private buffer: unknown[] = [];
   private emit: () => void;
 
@@ -119,6 +167,8 @@ export class Run {
       changedEntryIds: [],
       feed: [],
       records: [],
+      systemPrompt: systemPrompt(config.strategy),
+      transcript: [],
       running: false,
       inFlight: false,
       finished: false,
@@ -210,13 +260,6 @@ export class Run {
     });
   }
 
-  /** Researcher-side only: would this press look different under the other rules? */
-  private isDiscriminating(from: EntityState, button: Button): boolean {
-    const a = step(this.level, from, button, DEFAULT_RULES);
-    const b = step(this.level, from, button, CHANGED_RULES);
-    return JSON.stringify(a.state) !== JSON.stringify(b.state) || a.complete !== b.complete;
-  }
-
   /** Apply the scheduled hidden change, if this run has one and it is due. */
   private maybeIntervene() {
     const s = this.state;
@@ -275,7 +318,7 @@ export class Run {
     s.previousRoom = s.lastAction
       ? {
           room_index: s.levelIndex + 1,
-          outcome: solved ? 'completed' : 'ran_out_of_actions',
+          outcome: solved ? 'ended_by_action' : 'actions_exhausted',
           final_action: s.lastAction,
         }
       : null;
@@ -306,33 +349,49 @@ export class Run {
     mem?: { inPrompt: string; proposed: string; accepted: string; rejected: string | null },
   ) {
     const s = this.state;
+    const level = this.level;
     const before = { ...s.entity };
     const obsBefore = this.observation();
     const memInPrompt = mem?.inPrompt ?? renderMemory(s.memory);
-    const discriminating = this.isDiscriminating(before, button);
 
-    const r = step(this.level, before, button, s.rules);
+    const r = step(level, before, button, s.rules);
     s.entity = r.state;
     s.path = r.path;
     s.animToken++;
     s.globalStep++;
     s.levelStep++;
-    s.previousRoom = null; // it has now acted in this room; the report is spent
-    s.lastAction = {
+    // The room advances on a finish OR on the last action of the budget, so
+    // whether the next turn happens somewhere else is settled here, and the
+    // counterfactual has to be resolved against the same fact.
+    const roomChanged = r.complete || s.levelStep >= s.config.actionBudgetPerLevel;
+    const both = resolveBoth(
+      level,
+      before,
       button,
-      before: pose(before),
-      after: pose(r.state),
-      level_complete: r.complete,
-      ...(r.died ? { died: true, died_at: r.diedAt ?? undefined } : {}),
-    };
+      s.rules,
+      s.levelStep,
+      s.config.actionBudgetPerLevel,
+    );
+    const discriminating = both.divergent.length > 0;
+
+    s.previousRoom = null; // it has now acted in this room; the report is spent
+    s.lastAction = lastActionOf({ button, before, after: r.state, path: r.path, roomChanged });
     if (r.died) s.deaths++;
     this.lastPrediction = meta.prediction;
+    this.lastExpect = meta.expect;
+
+    const lethal = lethalGlyph(s.rules);
+    const originalObjective = goalGlyph(DEFAULT_RULES);
+    const touchedLethal = r.path.some((p) => level.grid[p.y][p.x] === lethal);
+    const touchedOriginalObjective = r.path.some(
+      (p) => level.grid[p.y][p.x] === originalObjective,
+    );
 
     if (discriminating && s.interventionAtStep !== null && s.firstDiscriminatingStep === null)
       s.firstDiscriminatingStep = s.globalStep;
 
     const moveText = r.died
-      ? `stepped on ${this.level.grid[r.path[r.path.length - 2]?.y ?? 0][r.path[r.path.length - 2]?.x ?? 0]} and was returned to the start`
+      ? `stepped on ${level.grid[r.diedAt?.y ?? 0][r.diedAt?.x ?? 0]} at ${r.diedAt?.x},${r.diedAt?.y} and was sent back to the start`
       : r.blocked
       ? 'nothing moved'
       : `${before.x},${before.y} to ${r.state.x},${r.state.y}` +
@@ -340,9 +399,17 @@ export class Run {
     this.push({ kind: 'action', text: `${button} — ${moveText}`, detail: meta.hypothesis });
     if (meta.contradiction) this.push({ kind: 'contradiction', text: meta.contradiction });
 
-    const verdict = meta.predictedPosition
-      ? meta.predictedPosition.x === r.state.x && meta.predictedPosition.y === r.state.y
-      : null;
+    // The run's own live verdict: every field it committed to came out right.
+    // The authoritative per-field scoring is in metrics.ts, over the records.
+    let committed = 0;
+    let allRight = true;
+    for (const f of PREDICTION_FIELDS) {
+      const v = scoreField(meta.expect, both.outcome, f);
+      if (v === null) continue;
+      committed++;
+      if (!v) allRight = false;
+    }
+    const verdict = committed ? allRight : null;
     s.lastReply = { ...meta, verdict };
 
     const record = {
@@ -362,8 +429,22 @@ export class Run {
       button,
       hypothesis: meta.hypothesis,
       prediction: meta.prediction,
-      predicted_position: meta.predictedPosition,
+      expect: meta.expect,
       contradiction: meta.contradiction,
+      // exactly what came back, so the log can be audited without the UI
+      model_response_raw: this.lastCall?.raw ?? null,
+      call: this.lastCall
+        ? {
+            model: this.lastCall.model,
+            latency_ms: this.lastCall.latencyMs,
+            stop_reason: this.lastCall.stopReason,
+            usage: this.lastCall.usage,
+            ...(this.lastCall.toolUses === undefined ? {} : { tool_uses: this.lastCall.toolUses }),
+            ...(this.lastCall.scaffoldTokens === undefined
+              ? {}
+              : { scaffold_tokens: this.lastCall.scaffoldTokens }),
+          }
+        : null,
       observation_after: this.observation(),
       level_complete: r.complete,
       // Researcher-only section. None of this is ever built into an observation.
@@ -374,9 +455,15 @@ export class Run {
         path: r.path,
         blocked: r.blocked,
         died: r.died,
+        died_at: r.diedAt,
         auto_moved: r.autoMoved,
+        outcome: both.outcome,
+        outcome_under_other_rules: both.other,
+        divergent_fields: both.divergent,
         discriminating_under_rule_change: discriminating,
         intervention_applied: s.interventionAtStep !== null,
+        touched_lethal: touchedLethal,
+        touched_original_objective: touchedOriginalObjective,
         manual_intervention: Boolean(s.config.manualIntervention),
       },
     };
@@ -403,7 +490,7 @@ export class Run {
     this.commit(button, {
       hypothesis: '(pressed by hand)',
       prediction: 'unknown',
-      predictedPosition: null,
+      expect: { ...EMPTY_PREDICTION },
       contradiction: null,
     });
   }
@@ -418,18 +505,63 @@ export class Run {
       memoryRejected: this.memoryRejected,
       lastInvalid: this.lastInvalid,
       lastPrediction: this.lastPrediction,
+      lastExpect: this.lastExpect,
     });
 
     this.lastPromptSent = user;
     const memInPrompt = renderMemory(s.memory);
 
-    const res = await fetch('/api/agent', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ system, user }),
-    });
-    const payload = await res.json();
-    if (!res.ok) throw new Error(payload.error || `provider returned ${res.status}`);
+    // Recorded before anything can go wrong, so a provider failure is a row in
+    // the transcript rather than a gap in it.
+    const entry: TranscriptEntry = {
+      n: s.transcript.length + 1,
+      step: s.globalStep + 1,
+      level: s.levelIndex + 1,
+      at: new Date().toISOString(),
+      user,
+      raw: '',
+      model: '',
+      latencyMs: 0,
+      usage: { input: 0, output: 0, cacheRead: 0 },
+      stopReason: null,
+      status: 'error',
+    };
+    s.transcript.push(entry);
+    this.lastCall = entry;
+
+    let payload: any;
+    try {
+      const res = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ system, user, model: s.config.model }),
+      });
+      payload = (await res.json()) as any;
+      if (!res.ok) throw new Error(payload?.error || `provider returned ${res.status}`);
+    } catch (e: any) {
+      entry.error = String(e?.message ?? e);
+      throw e;
+    }
+
+    entry.raw = payload.text ?? '';
+    entry.model = payload.model ?? '';
+    entry.latencyMs = payload.latencyMs ?? 0;
+    entry.usage = payload.usage ?? entry.usage;
+    entry.stopReason = payload.stopReason ?? null;
+    if (payload.toolUses !== undefined) entry.toolUses = payload.toolUses;
+    if (payload.scaffoldTokens !== undefined) entry.scaffoldTokens = payload.scaffoldTokens;
+
+    // A sealed subject must not be using tools. Surfaced loudly rather than
+    // buried: a run where it did is not an observation about reasoning from the
+    // prompt, and pooling it with runs where it did not would be silent.
+    if (entry.toolUses) {
+      this.push({
+        kind: 'error',
+        text: `SEAL BROKEN: the subject made ${entry.toolUses} tool call(s) on call ${entry.n}`,
+        researcherOnly: true,
+      });
+      this.log({ type: 'seal_alarm', global_step: s.globalStep, tool_uses: entry.toolUses });
+    }
 
     s.usage.calls++;
     s.usage.input += payload.usage?.input ?? 0;
@@ -451,6 +583,8 @@ export class Run {
       this.rejectReply(v.error, payload.text);
       return;
     }
+    entry.status = 'accepted';
+    entry.button = v.reply.button;
 
     const before = s.memory;
     const applied = applyMemory(before, v.reply.memory);
@@ -466,7 +600,7 @@ export class Run {
       {
         hypothesis: v.reply.hypothesis,
         prediction: v.reply.prediction,
-        predictedPosition: v.reply.predicted_position,
+        expect: v.reply.expect,
         contradiction: v.reply.contradiction,
       },
       {
@@ -482,6 +616,10 @@ export class Run {
   private rejectReply(error: string, raw: string) {
     this.state.invalidReplies++;
     this.lastInvalid = error;
+    if (this.lastCall) {
+      this.lastCall.status = 'rejected';
+      this.lastCall.error = error;
+    }
     this.push({ kind: 'error', text: `invalid reply: ${error}`, detail: (raw || '').slice(0, 300) });
     this.log({
       type: 'invalid_reply',
@@ -505,7 +643,7 @@ export class Run {
       this.commit(b, {
         hypothesis: '(random agent, integration check only)',
         prediction: 'unknown',
-        predictedPosition: null,
+        expect: { ...EMPTY_PREDICTION },
         contradiction: null,
       });
       return true;

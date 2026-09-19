@@ -24,14 +24,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { CHANGED_RULES, DEFAULT_RULES, step } from '../src/engine/engine.ts';
+import { CHANGED_RULES, DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
 import { INTERVENTION_BEFORE_LEVEL, LEVELS } from '../src/engine/levels.ts';
-import { buildObservation, pose, auditForLeaks, type LastAction } from '../src/engine/observation.ts';
+import { buildObservation, lastActionOf, auditForLeaks, type LastAction } from '../src/engine/observation.ts';
 import { ENGINE_VERSION, type Button, type EntityState, type Rules } from '../src/engine/types.ts';
 import { applyMemory, emptyMemory, renderMemory, type Memory, type StrategyName } from '../src/agent/memory.ts';
 import { systemPrompt, userPrompt } from '../src/agent/prompt.ts';
-import { extractJson, validate } from '../src/agent/schema.ts';
-import { computeMetrics, type StepRecord } from '../src/metrics.ts';
+import { extractJson, validate, PREDICTION_FIELDS, type Prediction } from '../src/agent/schema.ts';
+import { computeMetrics, resolveBoth, scoreField, type StepRecord } from '../src/metrics.ts';
+import { ask, providerConfig, type ProviderReply } from '../server/provider.ts';
+import { CHANGE_NOTICE } from '../src/runner.ts';
 
 const arg = (k: string, d?: string) =>
   process.argv.find((a) => a.startsWith(`--${k}=`))?.split('=').slice(1).join('=') ?? d;
@@ -49,58 +51,21 @@ fs.mkdirSync(RUNS, { recursive: true });
 const LOG = path.join(RUNS, `${RUN_ID}.jsonl`);
 const write = (rec: unknown) => fs.appendFileSync(LOG, JSON.stringify(rec) + '\n');
 
-const MODEL = process.env.AURA_MODEL || 'claude-opus-5';
-const ENDPOINT = process.env.AURA_ENDPOINT || '';
-const EFFORT = process.env.AURA_EFFORT || 'medium';
-
-interface Reply { text: string; usage: { input: number; output: number } }
-
-async function ask(system: string, user: string): Promise<Reply> {
-  if (ENDPOINT) {
-    const res = await fetch(`${ENDPOINT.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${process.env.AURA_API_KEY}` },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 4000,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-    });
-    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 400)}`);
-    const j: any = await res.json();
-    return {
-      text: j.choices?.[0]?.message?.content ?? '',
-      usage: { input: j.usage?.prompt_tokens ?? 0, output: j.usage?.completion_tokens ?? 0 },
-    };
-  }
-  const { default: Anthropic } = await import('@anthropic-ai/sdk');
-  const client = new Anthropic();
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: 4000,
-    system,
-    thinking: { type: 'adaptive' },
-    output_config: { effort: EFFORT as 'low' | 'medium' | 'high' },
-    messages: [{ role: 'user', content: user }],
-  });
-  return {
-    text: res.content.filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
-      .map((b) => b.text).join(''),
-    usage: { input: res.usage.input_tokens, output: res.usage.output_tokens },
-  };
-}
+const P = providerConfig();
 
 async function main() {
-  if (!ENDPOINT && !process.env.ANTHROPIC_API_KEY) {
+  if (!P.hasKey) {
     console.error(
-      'No model reachable. Set ANTHROPIC_API_KEY, or AURA_ENDPOINT + AURA_API_KEY for any\n' +
-        'OpenAI-compatible server (Ollama, LM Studio, vLLM). Nothing was run.',
+      'No model reachable. Set one of:\n' +
+        '  OPENROUTER_API_KEY=sk-or-...        OpenRouter (endpoint implied)\n' +
+        '  ANTHROPIC_API_KEY=sk-ant-...        Anthropic direct\n' +
+        '  AURA_ENDPOINT + AURA_API_KEY        any OpenAI-compatible server\n' +
+        '  AURA_PROVIDER=codex                 codex exec, sealed\n' +
+        'Choose the model with AURA_MODEL. Nothing was run.',
     );
     process.exit(1);
   }
+  console.log(`provider       ${P.label}`);
 
   let levelIndex = 0;
   let entity: EntityState = { ...LEVELS[0].start };
@@ -111,10 +76,12 @@ async function main() {
   let interventionAt: number | null = null;
   let lastAction: LastAction | null = null;
   let lastPrediction: string | null = null;
+  let lastExpect: Prediction | null = null;
   let memoryRejected: string | null = null;
   let lastInvalid: string | null = null;
   let previousRoom: any = null;
   let invalid = 0;
+  let toolUseAlarms = 0;
   const usage = { input: 0, output: 0, calls: 0 };
   const records: StepRecord[] = [];
   const outcomes: Array<{ level: number; solved: boolean; actions: number; deaths: number }> = [];
@@ -124,7 +91,8 @@ async function main() {
   write({
     type: 'run_start', at: new Date().toISOString(), engine_version: ENGINE_VERSION,
     config: { runId: RUN_ID, strategy: STRATEGY, condition: CONDITION, driver: 'llm', actionBudgetPerLevel: BUDGET, seed: 0 },
-    model: MODEL, system_prompt: system,
+    provider: P.provider, model: P.model, endpoint: P.endpoint, effort: P.effort,
+    system_prompt: system,
   });
 
   const intervene = () => {
@@ -140,7 +108,7 @@ async function main() {
     const level = LEVELS[levelIndex];
     const notice =
       CONDITION === 'notified' && levelIndex + 1 === INTERVENTION_BEFORE_LEVEL && levelStep === 0
-        ? 'One of the rules of this world has changed.'
+        ? CHANGE_NOTICE
         : undefined;
     const obs = buildObservation({
       level, roomIndex: levelIndex + 1, state: entity, lastAction,
@@ -153,18 +121,30 @@ async function main() {
     const memIn = renderMemory(memory);
     const user = userPrompt({
       observation: obs, memory, stepNumber: globalStep + 1,
-      memoryRejected, lastInvalid, lastPrediction,
+      memoryRejected, lastInvalid, lastPrediction, lastExpect,
     });
 
-    let reply: Reply;
+    let reply: ProviderReply;
     try {
-      reply = await ask(system, user);
+      reply = await ask(system, user, { maxTokens: 4000 });
     } catch (e: any) {
       console.error(`\nprovider error at step ${globalStep + 1}: ${e.message}`);
       write({ type: 'provider_error', global_step: globalStep, error: String(e.message) });
       break;
     }
     usage.calls++; usage.input += reply.usage.input; usage.output += reply.usage.output;
+    if (reply.toolUses) {
+      // A sealed subject must not be using tools. If it is, this is no longer an
+      // observation about reasoning from the prompt, and the run is not evidence.
+      toolUseAlarms++;
+      const what = (reply.toolItems ?? []).join(', ') || 'unknown item types';
+      console.log(`  !! step ${globalStep + 1}: subject made ${reply.toolUses} non-message item(s): ${what}`);
+      // Only a command or a file touch can actually leak the world. Planning
+      // and todo items are noise and must not be reported as a broken seal.
+      const leaky = (reply.toolItems ?? []).some((t) => /command|exec|file|read|search|fetch|mcp/i.test(t));
+      if (leaky) console.log('     ^^ SEAL BROKEN - this run is not valid evidence');
+      write({ type: 'seal_alarm', global_step: globalStep, tool_uses: reply.toolUses, tool_items: reply.toolItems ?? [], leaky });
+    }
     memoryRejected = null; lastInvalid = null;
 
     let parsed: unknown;
@@ -188,24 +168,34 @@ async function main() {
     memory = applied.memory;
 
     const before = { ...entity };
-    const a = step(level, before, v.reply.button as Button, DEFAULT_RULES);
-    const b = step(level, before, v.reply.button as Button, CHANGED_RULES);
-    const discriminating =
-      JSON.stringify(a.state) !== JSON.stringify(b.state) || a.complete !== b.complete || a.died !== b.died;
-
     const r = step(level, before, v.reply.button as Button, rules);
     entity = r.state; globalStep++; levelStep++;
+    const roomChanged = r.complete || levelStep >= BUDGET;
+    // the same counterfactual the browser runner records, from the same function
+    const both = resolveBoth(level, before, v.reply.button as Button, rules, levelStep, BUDGET);
+    const discriminating = both.divergent.length > 0;
     if (r.died) roomDeaths++;
     lastPrediction = v.reply.prediction;
+    lastExpect = v.reply.expect;
     previousRoom = null;
-    lastAction = {
-      button: v.reply.button, before: pose(before), after: pose(r.state),
-      level_complete: r.complete, ...(r.died ? { died: true, died_at: r.diedAt ?? undefined } : {}),
-    };
+    lastAction = lastActionOf({
+      button: v.reply.button, before, after: r.state, path: r.path, roomChanged,
+    });
 
-    const verdict = v.reply.predicted_position
-      ? v.reply.predicted_position.x === r.state.x && v.reply.predicted_position.y === r.state.y
-      : null;
+    const lethal = lethalGlyph(rules);
+    const originalObjective = goalGlyph(DEFAULT_RULES);
+    const touchedLethal = r.path.some((p) => level.grid[p.y][p.x] === lethal);
+    const touchedOriginalObjective = r.path.some((p) => level.grid[p.y][p.x] === originalObjective);
+
+    let committed = 0;
+    let allRight = true;
+    for (const f of PREDICTION_FIELDS) {
+      const ok = scoreField(v.reply.expect, both.outcome, f);
+      if (ok === null) continue;
+      committed++;
+      if (!ok) allRight = false;
+    }
+    const verdict = committed ? allRight : null;
 
     const record = {
       type: 'step' as const, run_id: RUN_ID, level: levelIndex + 1,
@@ -214,30 +204,43 @@ async function main() {
       memory_in_prompt: memIn, memory_proposed: renderMemory(v.reply.memory),
       memory_accepted: renderMemory(applied.memory), memory_update_rejected: applied.rejected,
       button: v.reply.button, hypothesis: v.reply.hypothesis, prediction: v.reply.prediction,
-      predicted_position: v.reply.predicted_position, contradiction: v.reply.contradiction,
+      expect: v.reply.expect, contradiction: v.reply.contradiction,
       model_response_raw: reply.text, level_complete: r.complete,
+      call: {
+        model: reply.model, latency_ms: reply.latencyMs, stop_reason: reply.stopReason,
+        usage: reply.usage,
+        ...(reply.toolUses === undefined ? {} : { tool_uses: reply.toolUses, tool_items: reply.toolItems ?? [] }),
+        ...(reply.scaffoldTokens === undefined ? {} : { scaffold_tokens: reply.scaffoldTokens }),
+      },
       researcher: {
         true_rules: rules, entity_before: before, entity_after: r.state, path: r.path,
         blocked: r.blocked, died: r.died, died_at: r.diedAt, auto_moved: r.autoMoved,
+        outcome: both.outcome, outcome_under_other_rules: both.other,
+        divergent_fields: both.divergent,
         discriminating_under_rule_change: discriminating,
-        intervention_applied: interventionAt !== null, manual_intervention: false,
+        intervention_applied: interventionAt !== null,
+        touched_lethal: touchedLethal, touched_original_objective: touchedOriginalObjective,
+        manual_intervention: false,
       },
     };
     records.push(record as unknown as StepRecord);
     write(record);
 
     const mark = verdict === true ? 'HIT ' : verdict === false ? 'MISS' : '  · ';
-    const what = r.died ? `DIED at ${r.diedAt!.x},${r.diedAt!.y}`
+    const what = r.died ? `SENT BACK from ${r.diedAt!.x},${r.diedAt!.y}`
       : r.blocked ? 'blocked'
-      : `${before.x},${before.y} -> ${r.state.x},${r.state.y}${r.complete ? '  ** ROOM COMPLETE **' : ''}`;
-    console.log(`  r${levelIndex + 1} s${String(globalStep).padStart(3)} ${v.reply.button} ${mark} ${what}`);
+      : `${before.x},${before.y} -> ${r.state.x},${r.state.y}${r.complete ? '  ** ROOM SOLVED **' : ''}`;
+    console.log(
+      `  r${levelIndex + 1} s${String(globalStep).padStart(3)} ${v.reply.button} ${mark} ${what}` +
+        (discriminating ? `   [tells: ${both.divergent.join(',')}]` : ''),
+    );
     if (!QUIET && v.reply.contradiction) console.log(`        flags: ${v.reply.contradiction}`);
 
     if (r.complete || levelStep >= BUDGET) {
       outcomes.push({ level: levelIndex + 1, solved: r.complete, actions: levelStep, deaths: roomDeaths });
       if (!r.complete) console.log(`  room ${levelIndex + 1} FAILED (budget)`);
       previousRoom = lastAction
-        ? { room_index: levelIndex + 1, outcome: r.complete ? 'completed' : 'ran_out_of_actions', final_action: lastAction }
+        ? { room_index: levelIndex + 1, outcome: r.complete ? 'ended_by_action' : 'actions_exhausted', final_action: lastAction }
         : null;
       levelIndex++; levelStep = 0; roomDeaths = 0; lastAction = null;
       if (levelIndex < LEVELS.length) { entity = { ...LEVELS[levelIndex].start }; intervene(); }
@@ -246,9 +249,10 @@ async function main() {
 
   const m = computeMetrics(records);
   const summary = {
-    run_id: RUN_ID, engine_version: ENGINE_VERSION, model: MODEL,
+    run_id: RUN_ID, engine_version: ENGINE_VERSION,
+    provider: P.provider, model: P.model, endpoint: P.endpoint,
     config: { strategy: STRATEGY, condition: CONDITION, budget: BUDGET },
-    outcomes, metrics: m, invalid_replies: invalid, usage,
+    outcomes, metrics: m, invalid_replies: invalid, tool_use_alarms: toolUseAlarms, usage,
   };
   write({ type: 'run_end', at: new Date().toISOString(), summary });
   fs.writeFileSync(path.join(RUNS, `${RUN_ID}.summary.json`), JSON.stringify(summary, null, 2));
@@ -256,15 +260,26 @@ async function main() {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`rooms solved   ${m.roomsSolved}/${Math.min(MAX_ROOMS, LEVELS.length)}`);
   console.log(`presses        ${m.totalActions}   deaths ${m.deaths} (${m.deathsAfterChange} after the change)`);
-  console.log(`accuracy       ${m.accuracy === null ? '—' : (m.accuracy * 100).toFixed(0) + '%'}  (${m.predictionsCorrect}/${m.predictionsCommitted} committed, ${m.predictionsDeclined} declined)`);
+  console.log(`accuracy       ${m.accuracy === null ? '—' : (m.accuracy * 100).toFixed(0) + '%'}  (${m.fieldsCorrect}/${m.fieldsCommitted} fields, ${m.predictionsDeclined} presses committed nothing)`);
+  if (m.hazardContacts.length)
+    console.log(`hazard touched ${m.hazardContacts.map((h) => `r${h.level}:${h.presses}${h.deaths ? `(${h.deaths} fatal)` : ''}`).join(' ')}`);
   if (m.interventionAtStep !== null) {
     console.log(`change at      step ${m.interventionAtStep}`);
-    console.log(`first telling  ${m.firstTellingStep ?? 'never'}`);
-    console.log(`recovered      ${m.recoveredAtStep ?? 'NOT RECOVERED'}`);
-    console.log(`missed chances ${m.tellingPressesBeforeRecovery}`);
+    console.log(`first evidence ${m.firstEvidenceStep ?? 'never'}`);
+    console.log(`R1 revised     ${m.firstRevisedPredictionStep ?? 'NEVER'}   (delay after evidence: ${m.detectionDelay ?? '—'})`);
+    console.log(`R2 room after  ${m.postChangeCompletionStep ?? 'NEVER'}`);
+    console.log(`RECOVERED      ${m.recovered ? `step ${m.recoveredAtStep}` : 'NO'}`);
+    console.log(`transfer       ${m.transferStep === null ? 'NO' : `step ${m.transferStep}`}`);
+    console.log(`stale rule     ${m.staleRulePredictions} predictions, ${m.staleRuleActions} actions (${m.staleRuleDeaths} fatal)`);
+    console.log(`violations     ${m.ruleRelevantViolations} on altered fields, ${m.predictionViolations} presses overall`);
+    if (m.collateralDrop !== null)
+      console.log(`collateral     ${(m.collateralDrop * 100).toFixed(0)}pp accuracy drop on fields the change did not touch`);
     if (m.demotedAfterChange.length) console.log(`demoted after  ${m.demotedAfterChange.join(', ')}`);
   }
   console.log(`invalid        ${invalid}`);
+  if (toolUseAlarms)
+    console.log(`SEAL BROKEN    ${toolUseAlarms} step(s) used tools - this run is not valid evidence`);
+  console.log(`provider       ${P.label}`);
   console.log(`model calls    ${usage.calls}  (${usage.input + usage.output} tokens)`);
   console.log(`log            ${LOG}`);
 }

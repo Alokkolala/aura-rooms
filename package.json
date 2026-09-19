@@ -10,8 +10,9 @@
     "preview": "vite preview",
     "verify": "node --test scripts/verify.ts",
     "verify:harness": "node --test scripts/harness.test.ts",
-    "check": "tsc --noEmit -p tsconfig.app.json && node --test scripts/verify.ts scripts/harness.test.ts",
-    "campaign": "node scripts/campaign.ts"
+    "check": "npm run typecheck && node --test scripts/verify.ts scripts/harness.test.ts",
+    "campaign": "node scripts/campaign.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

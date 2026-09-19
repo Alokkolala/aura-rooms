@@ -1,5 +1,6 @@
 import type { Observation } from '../engine/observation.ts';
 import { MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } from './memory.ts';
+import type { Prediction } from './schema.ts';
 
 /**
  * Prompt assembly.
@@ -10,6 +11,25 @@ import { MEMORY_BUDGET_CHARS, renderMemory, type Memory, type StrategyName } fro
  * store holds, which is the whole point of the comparison. If old rules could
  * survive in a message history, a reset arm would not actually be reset and the
  * experiment would measure the model's context window instead of its memory.
+ *
+ * WHAT IS NOT HERE, AND WHY.
+ *
+ * The instruction used to end with "the rules of this world are usually stable,
+ * but they are not guaranteed to stay that way". That sentence was in COMMON,
+ * so every arm got it — including the hidden one, whose entire definition is
+ * that it is NOT warned, and including the stable one, which has nothing to be
+ * warned about. The announced condition is supposed to be the only arm that
+ * learns a change has happened, and it learns it from one sentence attached to
+ * one observation. A standing warning in the system prompt collapsed the
+ * distinction the experiment exists to measure.
+ *
+ * It also used to say "be willing to spend a press on a deliberate test" and
+ * "a press that resolves an uncertainty is usually worth more than a press that
+ * acts on a guess". That is the experimental strategy being handed to the
+ * subject. Whether an agent chooses to probe is part of what is under study.
+ *
+ * What is left is the machinery — how a turn works, what persists, what shape
+ * the reply must take — and one line of objective.
  */
 
 const COMMON = `You are controlling something inside an unfamiliar game.
@@ -17,21 +37,11 @@ const COMMON = `You are controlling something inside an unfamiliar game.
 Each turn you see the room as a grid of visual codes, you press exactly one
 button (A, B, C or D), and then you see what happened.
 
-Nobody has told you what the buttons do, what the different surfaces do, or what
-makes a room end. You have to work that out from what you observe. When a room
-does end, the result of your action will say so and you will find yourself in a
-new room. Reaching later rooms is what you are here to do.
-
-The rules of this world are usually stable, but they are not guaranteed to stay
-that way.
+Explore the environment and progress as far as you can.
 
 Your memory is the only thing that persists from turn to turn. You do not get to
 see your earlier messages — only the memory you wrote. If you want to keep
-something, write it into memory.
-
-Be willing to spend a press on a deliberate test when you are unsure. A press
-that resolves an uncertainty is usually worth more than a press that acts on a
-guess.`;
+something, write it into memory.`;
 
 const FLAT_MEMORY = `Your memory is one block of free text. Replace it in full each turn: whatever
 you return becomes your entire memory, so keep anything you still want.
@@ -44,7 +54,7 @@ whatever you return becomes your entire memory, so keep anything you still
 want. You may edit, restate or drop any individual entry.
 
 Return "memory" as an array of objects with these fields:
-  id             short stable identifier you choose, e.g. "btn_b"
+  id             short fixed identifier you choose, e.g. "btn_b"
   claim          what you believe, in one sentence
   conditions     when you believe it applies ("" if you think it is general)
   status         one of: hypothesis, confirmed, suspect, superseded
@@ -60,16 +70,32 @@ const RESPONSE = `Reply with a single JSON object and nothing else:
 {
   "button": "A" | "B" | "C" | "D",
   "hypothesis": "the one thing this press is meant to find out, in a sentence",
-  "prediction": "the visible change you expect, in a few words",
-  "predicted_position": {"x": <number>, "y": <number>} or null,
+  "prediction": "what you expect to see, in a few words",
+  "expect": {
+    "end_position": {"x": <number>, "y": <number>},
+    "position_changed": true | false,
+    "returned_to_start": true | false,
+    "room_changed": true | false
+  },
   "memory": <as described above>,
   "contradiction": "what you just saw that conflicts with what you believed, or null"
 }
 
-"predicted_position" is where you expect the entity to END UP after this press,
-counting from the top-left of the grid. Give null if you genuinely cannot say —
-null is recorded as "did not commit", never as a wrong answer, so there is no
-reason to guess. Guessing when you do not know is worse than saying so.
+The four fields inside "expect" describe what you think will be on the screen
+after this press:
+
+  end_position       the square the entity will be standing on once everything
+                     has settled, counting from the top-left of the grid
+  position_changed   whether it will be standing anywhere other than where it
+                     is standing now
+  returned_to_start  whether it will be standing on the square this room began
+                     on
+  room_changed       whether your next turn will be in a different room
+
+Any of them may be null, and null means "I am not saying". A null is recorded
+as declining, never as a wrong answer, so there is no reason to guess. Guessing
+when you do not know is worse than saying so. Use "prediction" for anything
+else you expect, in your own words.
 
 Keep hypothesis and prediction to one short sentence each.`;
 
@@ -83,8 +109,9 @@ export function userPrompt(args: {
   stepNumber: number;
   memoryRejected: string | null;
   lastInvalid: string | null;
-  /** what this agent itself predicted last turn, echoed back verbatim */
+  /** what this agent itself said last turn, echoed back verbatim */
   lastPrediction: string | null;
+  lastExpect?: Prediction | null;
 }): string {
   const { observation, memory, stepNumber } = args;
   const mem = renderMemory(memory);
@@ -105,11 +132,18 @@ export function userPrompt(args: {
   // differently on the two memory formats, and it confounds the very comparison
   // this study is built to make. This is the agent's own output being handed
   // back, so it reveals nothing about the world.
-  if (args.lastPrediction)
+  if (args.lastPrediction || args.lastExpect) {
+    const said = [
+      args.lastPrediction ? `"${args.lastPrediction}"` : null,
+      args.lastExpect ? JSON.stringify(args.lastExpect) : null,
+    ]
+      .filter(Boolean)
+      .join(' and ');
     parts.push(
-      `Before your last press you predicted: "${args.lastPrediction}"\n` +
+      `Before your last press you predicted: ${said}\n` +
         `Compare that with what actually happened below.`,
     );
+  }
   parts.push(
     `Your memory right now (${mem.length}/${MEMORY_BUDGET_CHARS} characters):`,
     mem.trim() ? mem : '(empty — this is the first thing you have seen)',

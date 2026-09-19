@@ -423,7 +423,8 @@ All eight rooms were rebuilt. Reference lengths under the original rules:
 
 `[measured]` Cold start, empty memory, structured store, room 1, sealed Haiku
 subject, **every press chosen by the model**, nothing auto-advanced, nothing
-seeded. `tool_uses: 0` on all eight spawns. Log: `runs/live-cold-*.jsonl`.
+seeded. `tool_uses: 0` on all eight spawns. Log:
+`runs/archive-engine-v2/live-cold-*.jsonl`.
 
 It solved room 1 in 8 actions against a reference of 4. The extra four were not
 waste — they were spent identifying the button set:
@@ -620,10 +621,19 @@ seeded, and it now exists.
 
 ## 2026-09-19 — E14. The epicycle behaviour replicates across engine versions
 
-`[measured]` Cold start, empty memory, structured store, hidden condition, budget
-15, sealed Haiku, every press model-chosen. 14 presses, 3 deaths, **room 1 not
-solved**. Accuracy 55% (6/11 committed, 3 declined). Log:
-`runs/v3run-*.jsonl`.
+`[measured]` Cold start, empty memory, structured store, **stable condition**,
+budget 15, sealed Haiku, every press model-chosen. 14 presses, 3 deaths, **room 1
+not solved**. Accuracy 55% (6/11 committed, 3 declined). Log:
+`runs/archive-engine-v3/v3run-*.jsonl`.
+
+> **Correction, 2026-09-19 (E16).** This entry originally said "hidden
+> condition". The log says `"condition":"stable"`, and stable is what it was. The
+> discrepancy changed nothing about the finding — the run never left room 1, so
+> it never reached the intervention and the condition was never exercised — but
+> the entry was asserting a fact the evidence it cited contradicted. Fixed in the
+> prose rather than in the log: a recorded run is data, and editing it to agree
+> with a claim about it is the wrong direction of fit. See E16 for why *every*
+> hand-driven run in this repository was a stable run regardless of its config.
 
 It learned the button set correctly and quickly — and notably, it **abandoned a
 wrong frame rather than defending it**, which the v2 run never did:
@@ -709,3 +719,198 @@ a strong one, and that question has still never been answered.
   furthest any agent has got is room 1, unsolved.
 - The E7 echo finding was measured on v1 and has never been reproduced since two
   engine rebuilds.
+
+---
+
+## 2026-09-19 — E16. AURA v4: the project was measuring the wrong thing, in four places
+
+`[derived]` The framing changes. AURA is no longer *"does structured memory
+recover better than flat memory"*; that is now a sub-experiment. The question is:
+
+> Can an autonomous agent discover the rules of an unknown world, use them across
+> levels, detect when a previously reliable rule silently changes, and revise its
+> world model efficiently?
+
+Memory format is one variable inside that. It presupposes there are beliefs to
+store, and nothing in the old curriculum was built to watch them being formed.
+
+Four defects were found while rebuilding for it. Two of them were silently
+distorting the experiment rather than breaking it, which is the worse kind.
+
+### 1. Every arm was warned that the rules might change
+
+`[measured]` The system prompt ended with *"The rules of this world are usually
+stable, but they are not guaranteed to stay that way."* That sentence was in
+`COMMON` — the block shared by **all three conditions**.
+
+So the `hidden` arm, whose entire definition is that it is not warned, was
+warned. The `stable` arm was warned about something that never happens to it. And
+the `notified` arm's one sentence, which was supposed to be the only thing
+separating it from `hidden`, was no longer separating anything. The project's
+central comparison had been collapsed since the first commit, by one sentence
+that reads like good practice.
+
+Also removed: *"Be willing to spend a press on a deliberate test… a press that
+resolves an uncertainty is usually worth more than a press that acts on a
+guess."* That is the experimental strategy being handed to the subject. Whether
+an agent probes is part of what is under study, and E14's whole finding is about
+how it spends presses.
+
+What is left is the mechanics of a turn plus one line: *"Explore the environment
+and progress as far as you can."* The test is absolute rather than phrase-based —
+the word `rule` must not appear anywhere in what a hidden-arm agent is sent —
+because a phrase list only catches the wording you thought of.
+
+### 2. No hand-driven run ever applied the rule change
+
+`[measured]` `scripts/smoke.ts` declared `maybeIntervene` **inside**
+`observation()`. One stray brace. Nothing could call it, so no hand-stepped run
+ever swapped the surfaces, whatever `--condition` it was started with. Every
+`structured-hidden-manual-*.jsonl` in the archive is a `stable` run.
+
+No published finding changes — the furthest any hand-driven run ever got was room
+1, so none of them reached room 7 — but the next one would have been silently
+wrong, and it would have looked like a null result about agent behaviour.
+
+It survived because `scripts/` and `server/` were **not typechecked**. Only `src`
+was, and Node's type-stripping ignores types entirely at runtime, so a type error
+in a script was invisible forever. `npm run typecheck` now covers both projects,
+and the unused-symbol check found this on the first pass.
+
+`[derived]` The same blind spot explains why this was findable at all: the file
+had a dead function for its entire life and every test passed. Tests check that
+code does what it says. They cannot check that what it says is enough.
+
+### 3. Recovery could be achieved by walking in a straight line
+
+`[measured]` The old criterion was **three consecutive correct predictions after
+the change**, on a single `predicted_position` field. Three presses down an empty
+corridor satisfy it. An agent that had revised nothing could score a recovery for
+being able to count squares, and the number would have looked perfectly
+respectable in a table.
+
+The fix required an instrument the project did not have. Every press is now
+resolved **twice** — under the rules in force and under the other set — and the
+engine records `divergent_fields`: exactly which of the observable outcomes read
+differently between them. An ordinary move has none.
+
+**Recovered = R1 ∧ R2**, where
+
+- **R1** = a correct prediction on a field in `divergent_fields`, after the
+  change. A press that could not have revealed the change cannot contribute.
+- **R2** = a room finished after the change.
+
+`recoveredAtStep` is whichever landed last. Transfer to room 8 is reported
+separately, not folded in: it is a much harder bar, and a conjunction including
+it would be false for nearly every run in every arm. A metric that is always zero
+separates nothing.
+
+Also tracked now: `firstEvidenceStep` (the first press that *could* have revealed
+the change), `detectionDelay` measured **from that** rather than from the
+intervention — measuring from the flip punishes an agent for time it had no way
+to use — `staleRulePredictions` (wrong in exactly the way the dead rule was
+wrong), `staleRuleActions`/`staleRuleDeaths`, and `collateralDrop`, the accuracy
+lost on fields the change did *not* touch. That last one is the only collateral
+measure that works for both arms: a flat store has no statuses to demote, so
+belief bookkeeping cannot compare them.
+
+### 4. `predicted_position` was too weak, and an event enum would have leaked
+
+`[derived]` One coordinate cannot express "I expect nothing to move" distinctly
+from "I expect to be sent back to where I started" when the start happens to be
+where you already are. Four independent claims can: `end_position`,
+`position_changed`, `returned_to_start`, `room_changed`, each nullable, each
+compared with `===`.
+
+The obvious richer design is an event label — *move / blocked / deflected /
+death / room_complete*. It was rejected for two reasons.
+
+**It leaks.** Those words sit in the system prompt from turn one. An agent in
+room 1, which now contains nothing that can hurt it, would be told that dying and
+being deflected are things this world does — two rooms before the first is
+introduced and four before the second. The curriculum's entire value is that each
+idea arrives exactly once.
+
+**And a single label forces a precedence rule** when a press does two things at
+once (deflected *onto* the exit), so the agent would be scored partly on guessing
+a labelling convention.
+
+The same discipline was applied to the observation. `died` became `came_from` —
+the last cell occupied before coming to rest, always present, no special case —
+and `level_complete` became `room_changed`. `previous_room.outcome` is now
+`ended_by_action` / `actions_exhausted` rather than `completed` /
+`ran_out_of_actions`. Every field is now something a person watching the screen
+could read off without knowing a single rule. The forbidden-token list grew from
+30 to 48 and now bans event causes, not just surface functions.
+
+`[derived]` The leak audit also changed shape. Plain substring matching became
+unusable once ordinary English words entered the list — *knowing* contains `win`,
+*audience* contains `die`, *close* contains `lose`. Tokens now match at the start
+of a word only, which keeps every inflection (*killing*, *deadly*, *deflected*,
+*completed*) and drops the false alarms. A check that cries wolf gets deleted.
+
+### The curriculum, rebuilt
+
+| # | room | teaches | lethal surface? |
+|---|---|---|---|
+| 1 | controls | the four buttons | **none** |
+| 2 | the same shape | that a *surface* ends rooms, not a square | **none** |
+| 3 | the straight line | the lethal surface, sitting on the obvious route | yes |
+| 4 | two doors | transfer, as an equidistant forced choice | yes |
+| 5 | reorientation | the deflector, load-bearing | yes |
+| 6 | assembly | all of it, nothing new | yes |
+| 7 | the same two | *the swap has already happened* | yes |
+| 8 | transfer | revised rule + the deflector rule that never changed | yes |
+
+`[measured]` Room 2's first draft was solved by `AABB` — **the identical sequence
+that solves room 1**. Its entire job is to confirm that the surface ends the room
+rather than the square or the sequence, and an agent could have satisfied it by
+replaying four presses. Caught by writing the assertion, not by playing. There is
+now a test that no two rooms share a solution.
+
+`[measured]` Rooms 1–6 need only be solvable under the original rules; only 7 and
+8 are played under both, because only they are reached after the change and the
+`stable` arm reaches them unswapped. That relaxation is what makes hazard-free
+rooms 1–2 possible at all: under the swapped rules the rings themselves kill, and
+every room needs rings to be finishable. So "hazard-free" and "played under both
+regimes" are checked *against each other* — a room cannot claim both.
+
+New tests, 66 in total (was 41):
+
+- rooms 1–2: **no press from any pose is fatal**, and neither room can ever be
+  reached by the swap
+- the hazard appears first in room 3, the deflector first in room 5, and the
+  deflector is learnable before the change
+- no two rooms share a solution
+- room 7 is contradictory in the strong sense: the pre-change solution is fatal
+  after the change **and** the post-change solution is fatal before it, and the
+  post-change route is the shorter one, so failing to revise costs more than it
+  saves
+- rooms 7–8 are finishable **through the runner**, in all three conditions,
+  within budget — not merely solvable on paper
+- ordinary movement accuracy cannot trigger recovery (ten consecutive correct
+  ordinary predictions plus a finished room ⇒ `recovered === false`)
+- an ordinary move produces no divergent fields, exhaustively over room 7
+- the hidden prompt never contains the word `rule`; the announced prompt contains
+  it only inside the notice
+- the response schema names no cause
+
+### Standing gaps, and two new ones
+
+- **No v4 data exists.** Not one model call has been made against the new
+  curriculum, prompt, schema or metrics. Everything E5–E15 describes is an
+  instrument that has since been rebuilt in four places.
+- Archived runs **cannot be rescored**. A v3 step recorded one
+  `predicted_position`; a v4 step records four claims, and every metric derives
+  from the latter.
+- **No flat-memory run exists**, across four engine versions.
+- `[assumption]` **R1 requires the agent to commit.** An agent that revises
+  correctly but declines to predict on every telling press scores as not
+  recovered. That is deliberate — an uncommitted belief cannot be checked without
+  reading prose — but it means `recovered` measures revision *plus* willingness
+  to be scored, and nothing here separates them.
+- `[assumption]` `staleRuleActions` cannot tell deliberate probing from acting on
+  a dead rule. A careful agent testing its hypothesis is counted the same as a
+  careless one relying on it. Given that E14's central finding is *about* how the
+  agent spends probes, this is the weakest of the new metrics.
+- Still one rule family, one change, one direction. No A→B→A return.

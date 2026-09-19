@@ -19,13 +19,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { CHANGED_RULES, DEFAULT_RULES, step } from '../src/engine/engine.ts';
+import { CHANGED_RULES, DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
 import { INTERVENTION_BEFORE_LEVEL, LEVELS } from '../src/engine/levels.ts';
-import { buildObservation, pose, auditForLeaks } from '../src/engine/observation.ts';
+import { buildObservation, lastActionOf, pose, auditForLeaks } from '../src/engine/observation.ts';
 import { ENGINE_VERSION, type Button, type EntityState, type Rules } from '../src/engine/types.ts';
 import { applyMemory, emptyMemory, renderMemory, type Memory, type StrategyName } from '../src/agent/memory.ts';
 import { systemPrompt, userPrompt } from '../src/agent/prompt.ts';
-import { extractJson, validate } from '../src/agent/schema.ts';
+import { extractJson, validate, PREDICTION_FIELDS, type Prediction } from '../src/agent/schema.ts';
+import { resolveBoth, scoreField } from '../src/metrics.ts';
+import { CHANGE_NOTICE } from '../src/runner.ts';
 
 const RUNS = path.resolve('runs');
 const STATE = path.join(RUNS, 'smoke-state.json');
@@ -45,6 +47,7 @@ interface State {
   memoryRejected: string | null;
   lastInvalid: string | null;
   lastPrediction: string | null;
+  lastExpect: Prediction | null;
   previousRoom: any;
   condition: 'stable' | 'hidden' | 'notified';
   interventionAtStep: number | null;
@@ -80,18 +83,26 @@ function observation(s: State) {
       s.condition === 'notified' &&
       s.levelIndex + 1 === INTERVENTION_BEFORE_LEVEL &&
       s.levelStep === 0
-        ? 'One of the rules of this world has changed.'
+        ? CHANGE_NOTICE
         : undefined,
   });
+}
 
-/** Apply the scheduled hidden change on entering the intervention room. */
+/**
+ * Apply the scheduled hidden change on entering the intervention room.
+ *
+ * This function used to be declared INSIDE `observation()` — a stray brace put
+ * it there — so nothing could reach it and no hand-driven run ever swapped the
+ * surfaces, whatever condition it was started in. The stepper silently ran
+ * every condition as `stable`. Nothing caught it because `scripts/` was not
+ * typechecked; it is now, and the unused-symbol check found this in one pass.
+ */
 function maybeIntervene(s: State) {
   if (s.condition === 'stable' || s.interventionAtStep !== null) return;
   if (s.levelIndex + 1 !== INTERVENTION_BEFORE_LEVEL) return;
   s.rules = { ...CHANGED_RULES };
   s.interventionAtStep = s.globalStep;
   console.log(`  [researcher] RULE CHANGED on entering room ${INTERVENTION_BEFORE_LEVEL}`);
-}
 }
 
 function init() {
@@ -117,6 +128,7 @@ function init() {
     memoryRejected: null,
     lastInvalid: null,
     lastPrediction: null,
+    lastExpect: null,
     previousRoom: null,
     condition: (arg('condition') as State['condition']) ?? (flag('changed') ? 'hidden' : 'stable'),
     interventionAtStep: null,
@@ -159,6 +171,7 @@ function prompt() {
       memoryRejected: s.memoryRejected,
       lastInvalid: s.lastInvalid,
       lastPrediction: s.lastPrediction,
+      lastExpect: s.lastExpect,
     }),
   );
 }
@@ -196,23 +209,26 @@ function apply(file: string) {
   const level = LEVELS[s.levelIndex];
   const before = { ...s.entity };
   const obsBefore = observation(s);
-  const a = step(level, before, v.reply.button as Button, DEFAULT_RULES);
-  const b = step(level, before, v.reply.button as Button, CHANGED_RULES);
-  const discriminating = JSON.stringify(a.state) !== JSON.stringify(b.state) || a.complete !== b.complete;
-
   const r = step(level, before, v.reply.button as Button, s.rules);
   s.entity = r.state;
   s.globalStep++;
   s.levelStep++;
+  const roomChanged = r.complete || s.levelStep >= s.budget;
+  const both = resolveBoth(level, before, v.reply.button as Button, s.rules, s.levelStep, s.budget);
+  const discriminating = both.divergent.length > 0;
   s.previousRoom = null;
   s.lastPrediction = v.reply.prediction;
-  s.lastAction = {
+  s.lastExpect = v.reply.expect;
+  s.lastAction = lastActionOf({
     button: v.reply.button,
-    before: pose(before),
-    after: pose(r.state),
-    level_complete: r.complete,
-    ...(r.died ? { died: true, died_at: r.diedAt ?? undefined } : {}),
-  };
+    before,
+    after: r.state,
+    path: r.path,
+    roomChanged,
+  });
+
+  const lethal = lethalGlyph(s.rules);
+  const originalObjective = goalGlyph(DEFAULT_RULES);
 
   append(s, {
     type: 'step',
@@ -228,7 +244,7 @@ function apply(file: string) {
     button: v.reply.button,
     hypothesis: v.reply.hypothesis,
     prediction: v.reply.prediction,
-    predicted_position: v.reply.predicted_position,
+    expect: v.reply.expect,
     model_response_raw: raw,
     contradiction: v.reply.contradiction,
     observation_after: observation(s),
@@ -240,9 +256,15 @@ function apply(file: string) {
       path: r.path,
       blocked: r.blocked,
       died: r.died,
+      died_at: r.diedAt,
       auto_moved: r.autoMoved,
+      outcome: both.outcome,
+      outcome_under_other_rules: both.other,
+      divergent_fields: both.divergent,
       discriminating_under_rule_change: discriminating,
       intervention_applied: s.interventionAtStep !== null,
+      touched_lethal: r.path.some((q) => level.grid[q.y][q.x] === lethal),
+      touched_original_objective: r.path.some((q) => level.grid[q.y][q.x] === originalObjective),
       manual_intervention: true,
     },
   });
@@ -253,20 +275,20 @@ function apply(file: string) {
   console.log(
     `  happened   : ` +
       (r.died
-        ? `DIED on ${level.grid[r.path[r.path.length - 2]?.y ?? 0][r.path[r.path.length - 2]?.x ?? 0]} -> back to ${r.state.x},${r.state.y}`
+        ? `SENT BACK from ${level.grid[r.diedAt!.y][r.diedAt!.x]} at ${r.diedAt!.x},${r.diedAt!.y} -> ${r.state.x},${r.state.y}`
         : r.blocked
         ? 'nothing moved'
         : `${before.x},${before.y} ${pose(before).marker} -> ${r.state.x},${r.state.y} ${pose(r.state).marker}` +
           (r.autoMoved ? ` (carried ${r.autoMoved})` : '')) +
-      (r.complete ? '  ** ROOM COMPLETE **' : ''),
+      (r.complete ? '  ** ROOM SOLVED **' : ''),
   );
-  if (v.reply.predicted_position) {
-    const hit =
-      v.reply.predicted_position.x === r.state.x && v.reply.predicted_position.y === r.state.y;
+  const scored = PREDICTION_FIELDS.map((f) => [f, scoreField(v.reply.expect, both.outcome, f)] as const)
+    .filter(([, ok]) => ok !== null);
+  if (scored.length)
     console.log(
-      `  verdict    : ${hit ? 'HIT' : 'MISS'}  (said ${v.reply.predicted_position.x},${v.reply.predicted_position.y})`,
+      `  verdict    : ${scored.map(([f, ok]) => `${f}=${ok ? 'HIT' : 'MISS'}`).join(' ')}`,
     );
-  } else console.log('  verdict    : declined to predict');
+  else console.log('  verdict    : committed to nothing');
   if (v.reply.contradiction) console.log(`  agent flags: ${v.reply.contradiction}`);
   if (discriminating) console.log(`  [researcher] this press distinguishes the two rule sets`);
   if (applied.rejected) console.log(`  [harness] ${applied.rejected}`);
@@ -274,19 +296,39 @@ function apply(file: string) {
   if (r.complete) {
     if (s.levelIndex + 1 < LEVELS.length) {
       // the room that just ENDED, captured before the index moves on
-      s.previousRoom = { room_index: s.levelIndex + 1, outcome: 'completed', final_action: s.lastAction };
-      s.levelIndex++;
-      s.levelStep = 0;
-      s.entity = { ...LEVELS[s.levelIndex].start };
-      s.lastAction = null;
-      console.log(`  -> now in room ${s.levelIndex + 1}`);
+      s.previousRoom = { room_index: s.levelIndex + 1, outcome: 'ended_by_action', final_action: s.lastAction };
+      advance(s);
     } else {
       console.log('  -> campaign finished');
     }
   } else if (s.levelStep >= s.budget) {
     console.log(`  budget for room ${s.levelIndex + 1} exhausted`);
+    if (s.levelIndex + 1 < LEVELS.length) {
+      s.previousRoom = {
+        room_index: s.levelIndex + 1,
+        outcome: 'actions_exhausted',
+        final_action: s.lastAction,
+      };
+      advance(s);
+    } else console.log('  -> campaign finished');
   }
   save(s);
+}
+
+/**
+ * Move into the next room and apply the scheduled change if it is due.
+ *
+ * Running out of actions used to leave the stepper parked in a room it could
+ * no longer act in, so a hand-driven run could never reach the intervention by
+ * failing a room — only by solving every one of them.
+ */
+function advance(s: State) {
+  s.levelIndex++;
+  s.levelStep = 0;
+  s.entity = { ...LEVELS[s.levelIndex].start };
+  s.lastAction = null;
+  maybeIntervene(s);
+  console.log(`  -> now in room ${s.levelIndex + 1}`);
 }
 
 function status() {

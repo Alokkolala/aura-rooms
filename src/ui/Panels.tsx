@@ -56,7 +56,7 @@ export function AgentPanel({ s }: { s: RunState }) {
     ? la.before.x === la.after.x && la.before.y === la.after.y && la.before.marker === la.after.marker
       ? 'nothing visibly changed'
       : `${la.before.x},${la.before.y} ${la.before.marker} → ${la.after.x},${la.after.y} ${la.after.marker}` +
-        (la.level_complete ? '  · room ended' : '')
+        (la.room_changed ? '  · room ended' : '')
     : null;
 
   return (

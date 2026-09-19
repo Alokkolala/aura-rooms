@@ -113,8 +113,13 @@ export const DELTA: ReadonlyArray<readonly [number, number]> = [
  *     rebuilt. See runs/archive-engine-v1/.
  * v3: striped surface removed entirely. The rule change is now a swap between
  *     the goal surface and a lethal one. See runs/archive-engine-v2/.
+ * v4: curriculum rebuilt around acquisition then revision — rooms 1-2 contain
+ *     no lethal surface at all, the hazard is introduced in 3 and the deflector
+ *     in 5, and only rooms 7-8 need to work under both rule sets. The reported
+ *     outcome of a press is now purely observational: no field names a cause.
+ *     See runs/archive-engine-v3/.
  */
-export const ENGINE_VERSION = 3;
+export const ENGINE_VERSION = 4;
 
 /** Hard cap on automatic effect resolution so the engine can never hang. */
 export const MAX_EFFECT_ITERATIONS = 64;

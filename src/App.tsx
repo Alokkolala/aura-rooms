@@ -3,6 +3,8 @@ import { Room } from './ui/Room.tsx';
 import { AgentPanel, ButtonPad, EventFeed, ResearcherPanel } from './ui/Panels.tsx';
 import { Replay } from './ui/Replay.tsx';
 import { BeliefTimeline, MetricsPanel, PredictionLedger } from './ui/Behaviour.tsx';
+import { WirePanel } from './ui/Wire.tsx';
+import { AgentConsole, type ConsoleConfig } from './ui/Console.tsx';
 import { PROTOCOLS, estimateCalls, type Arm, type Protocol } from './experiment.ts';
 import { LEVELS } from './engine/levels.ts';
 import { solve } from './engine/solver.ts';
@@ -11,10 +13,13 @@ import type { StrategyName } from './agent/memory.ts';
 import { Run, type Condition, type Driver, type RunConfig } from './runner.ts';
 
 interface ServerStatus {
+  provider: 'anthropic' | 'openai-compatible' | 'codex';
   model: string;
   effort: string;
   endpoint: string;
   hasKey: boolean;
+  /** human-readable subject, e.g. "openrouter.ai - anthropic/claude-sonnet-5" */
+  label: string;
 }
 
 const STRATEGIES: StrategyName[] = ['flat', 'structured'];
@@ -41,8 +46,11 @@ export default function App() {
   const [driver, setDriver] = useState<Driver>('manual');
   const [budget, setBudget] = useState(30);
   const [seed, setSeed] = useState(1);
+  // Empty means 'whatever the server is configured for'. Set from the console
+  // page, fixed into RunConfig when a run is created, logged in run_start.
+  const [model, setModel] = useState('');
   const [showResearcher, setShowResearcher] = useState(true);
-  const [tab, setTab] = useState<'live' | 'behaviour' | 'replay'>('live');
+  const [tab, setTab] = useState<'console' | 'live' | 'behaviour' | 'wire' | 'replay'>('console');
   const [pick, setPick] = useState<number | null>(null);
   const [protocol, setProtocol] = useState<Protocol>(PROTOCOLS[0]);
 
@@ -50,20 +58,36 @@ export default function App() {
   const emit = useCallback(() => force((n) => n + 1), []);
   const runRef = useRef<Run | null>(null);
 
+  /**
+   * Build a fresh run.
+   *
+   * `over` exists because the obvious version was silently wrong. A control
+   * that calls `setModel(x)` and then `makeRun()` does NOT get a run using `x`:
+   * this callback closed over the previous `model`, so the run was created with
+   * the old value and quietly went to whatever the server was configured for.
+   * The UI showed the new model, the log recorded a different subject, and
+   * nothing anywhere disagreed. Callers that are changing settings must hand
+   * those settings in rather than hoping the closure has caught up.
+   */
   const makeRun = useCallback(
-    (d: Driver = driver) => {
-      const cfg: RunConfig = {
-        runId: newRunId(`${strategy}-${condition}-${d}`),
+    (d: Driver = driver, over: Partial<RunConfig> = {}) => {
+      const merged = {
         strategy,
         condition,
-        driver: d,
         actionBudgetPerLevel: budget,
         seed,
+        model: model.trim() || undefined,
+        ...over,
+      };
+      const cfg: RunConfig = {
+        ...merged,
+        runId: newRunId(`${merged.strategy}-${merged.condition}-${d}`),
+        driver: d,
       };
       runRef.current = new Run(cfg, emit);
       emit();
     },
-    [strategy, condition, driver, budget, seed, emit],
+    [strategy, condition, driver, budget, seed, model, emit],
   );
 
   useEffect(() => {
@@ -77,6 +101,18 @@ export default function App() {
     if (!runRef.current) makeRun();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The console page exists to drive a model, so a run reached from it is an
+  // LLM run. Switched once, on arrival, and only while the run is still empty:
+  // converting it later would mean silently discarding a run in progress, which
+  // is what the first version of the Start button did.
+  useEffect(() => {
+    if (tab !== 'console') return;
+    if (driver === 'llm') return;
+    if ((runRef.current?.state.globalStep ?? 0) > 0) return;
+    setDriver('llm');
+    makeRun('llm');
+  }, [tab, driver, makeRun]);
 
   const run = runRef.current;
   const s = run?.state;
@@ -144,11 +180,17 @@ export default function App() {
         rooms_solved: m.roomsSolved - base.rooms,
         actions: m.totalActions - base.steps,
         accuracy: m.accuracy === null ? '' : m.accuracy.toFixed(2),
-        first_telling: m.firstTellingStep ?? '',
-        first_correct_after: m.firstCorrectAfterChange ?? '',
-        first_success_after: m.firstSuccessAfterChange ?? '',
+        first_evidence: m.firstEvidenceStep ?? '',
+        first_revised_prediction: m.firstRevisedPredictionStep ?? '',
+        detection_delay: m.detectionDelay ?? '',
+        post_change_room: m.postChangeCompletionStep ?? '',
         recovered_at: m.recoveredAtStep ?? '',
-        missed_chances: m.tellingPressesBeforeRecovery,
+        transfer_at: m.transferStep ?? '',
+        rule_relevant_violations: m.ruleRelevantViolations,
+        stale_rule_predictions: m.staleRulePredictions,
+        stale_rule_actions: m.staleRuleActions,
+        stale_rule_deaths: m.staleRuleDeaths,
+        collateral_drop: m.collateralDrop === null ? '' : m.collateralDrop.toFixed(2),
         demoted_after_change: m.demotedAfterChange.join(' '),
         invalid_replies: branch.state.invalidReplies,
         model_calls: branch.state.usage.calls,
@@ -243,21 +285,31 @@ export default function App() {
 
       <nav className="tabs">
         {([
+          ['console', 'Agent console'],
           ['live', 'Play'],
           ['behaviour', 'Behaviour'],
+          ['wire', 'Wire log'],
           ['replay', 'Replay'],
         ] as const).map(([k, label]) => (
           <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
             {label}
             {k === 'behaviour' && s.records.length ? ` (${s.records.length})` : ''}
+            {k === 'wire' && s.transcript.length ? ` (${s.transcript.length})` : ''}
           </button>
         ))}
       </nav>
 
       {status && !status.hasKey && (
         <div className="banner info">
-          No API key on the server, so the LLM agent is unavailable. Manual play, the random
-          agent, and replay all work. Set <code>ANTHROPIC_API_KEY</code> and restart to enable it.
+          No model credentials on the server, so the LLM agent is unavailable. Manual play, the
+          random agent, and replay all work. Set <code>OPENROUTER_API_KEY</code> (or{' '}
+          <code>ANTHROPIC_API_KEY</code>, or <code>AURA_PROVIDER=codex</code>) and restart to
+          enable it.
+        </div>
+      )}
+      {status && status.hasKey && tab !== 'console' && (
+        <div className="banner info">
+          Subject: <b>{status.label}</b>. Every call is recorded in full under the Wire log tab.
         </div>
       )}
       {s.error && <div className="banner err">Provider error — {s.error}</div>}
@@ -268,7 +320,47 @@ export default function App() {
         </div>
       )}
 
-      {tab === 'replay' ? (
+      {tab === 'console' ? (
+        <div style={{ gridColumn: '1 / -1' }}>
+          <AgentConsole
+            s={s}
+            subject={status?.label ?? 'checking...'}
+            hasKey={Boolean(status?.hasKey)}
+            locked={locked}
+            busy={busy}
+            config={{ model, strategy, condition, budget }}
+            onConfig={(c: ConsoleConfig) => {
+              setModel(c.model);
+              setStrategy(c.strategy);
+              setCondition(c.condition);
+              setBudget(c.budget);
+              // The console only ever drives the model, so a config change there
+              // rebuilds the run as an LLM run rather than leaving it on manual.
+              setDriver('llm');
+              // hand the new values in; see the note on makeRun
+              setTimeout(
+                () =>
+                  makeRun('llm', {
+                    strategy: c.strategy,
+                    condition: c.condition,
+                    actionBudgetPerLevel: c.budget,
+                    model: c.model.trim() || undefined,
+                  }),
+                0,
+              );
+            }}
+            onStart={() => void run!.loop()}
+            onPause={() => run!.pause()}
+            onStep={() => void run!.stepOnce()}
+            onRestart={() => makeRun('llm')}
+            onExport={() => void exportRun()}
+          />
+        </div>
+      ) : tab === 'wire' ? (
+        <div style={{ gridColumn: '1 / -1' }}>
+          <WirePanel s={s} />
+        </div>
+      ) : tab === 'replay' ? (
         <div style={{ gridColumn: '1 / -1' }}>
           <Replay />
         </div>
@@ -337,7 +429,7 @@ export default function App() {
                   path={s.path}
                   animToken={s.animToken}
                   highlight={{ x: s.entity.x, y: s.entity.y }}
-                  celebrate={s.lastAction?.level_complete ?? false}
+                  celebrate={s.lastAction?.room_changed ?? false}
                 />
                 <ButtonPad
                   onPress={(b) => {

@@ -7,18 +7,32 @@ dated lab notebook. This is the story.
 
 ## 1. The question
 
-When an AI agent learns how something works and then that thing quietly changes,
-what happens to what it already knows?
+> **Can an autonomous agent discover the rules of an unknown world, use them
+> across levels, detect when a previously reliable rule silently changes, and
+> revise its world model efficiently?**
 
-The easy failure is obvious: it keeps acting on the old rule. The interesting
-question is narrower. When the agent finally notices something is wrong, **what
-does it throw away?** Ideally it should find the one belief that broke, fix that,
-drop the plans that were built on top of it, and keep everything else. The two
-bad outcomes are throwing away everything (and re-learning the world from
-scratch) or throwing away the wrong thing (and keeping the broken belief).
+That is four questions wearing one coat, and the point of the rebuild was to
+stop them being tangled together:
 
-AURA Rooms is a small world built to watch exactly that moment happen, on
-purpose, under controlled conditions.
+1. **Acquisition.** Can it work out the rules at all, from nothing?
+2. **Transfer.** Does a rule learned in one room survive into the next one, with
+   different geometry?
+3. **Detection.** When a rule it relied on silently stops being true, how long
+   does it take to notice — counted from the first moment the world actually
+   showed it something, not from the moment the researcher flipped the switch?
+4. **Revision.** When it finally notices, **what does it throw away?** Ideally it
+   finds the one belief that broke, fixes that, drops the plans built on top of
+   it, and keeps everything else. The two bad outcomes are throwing away
+   everything and re-learning the world from scratch, or throwing away the wrong
+   thing and keeping the broken belief.
+
+Earlier versions of this project described themselves as being about *flat vs
+structured memory*. That is now a **sub-experiment**: it asks which way of
+storing beliefs revises better, and it presupposes there are beliefs to store.
+Rooms 1–6 exist to watch them being formed.
+
+AURA Rooms is a small world built to watch all four things happen, on purpose,
+under controlled conditions.
 
 ---
 
@@ -28,13 +42,14 @@ A little grid game the agent plays blind.
 
 The agent sees a room as a grid of shapes, and it has four buttons: **A, B, C,
 D**. Nobody tells it what the buttons do. Nobody tells it what the different
-floor patterns do. Nobody even tells it what makes a room end. It has to work
-all of that out by pressing buttons and watching.
+floor patterns do. Nobody even tells it what makes a room end. The entire
+instruction is the mechanics of a turn plus one line: *"Explore the environment
+and progress as far as you can."*
 
 Each turn it must do four things:
 
 1. say what it's trying to find out,
-2. **predict what it thinks will happen**,
+2. **commit, in advance, to four specific things it expects to see**,
 3. press one button,
 4. write down whatever it wants to remember.
 
@@ -45,6 +60,33 @@ what makes comparing memory styles meaningful at all.
 
 There are eight rooms. After room six, **one rule silently changes** and nobody
 tells the agent.
+
+### The eight rooms, and why they are in that order
+
+The curriculum *is* the experiment. If two mechanics arrive in the same room
+there is no way to tell afterwards which one the agent was learning.
+
+| # | room | what it is for |
+|---|---|---|
+| 1 | controls | Learn the four buttons. **There is no lethal surface in this room at all** — you cannot lose a life while working out which way is up. |
+| 2 | the same shape | Confirm that what ended room 1 was the *surface*, not the square. Room 1's winning cell (3,2) is ordinary floor here, sitting directly beneath the real one, on a route exactly as short as the way around. Still no lethal surface. |
+| 3 | the straight line | Introduce the lethal surface where it cannot be missed: it sits exactly halfway between the start and the exit, so "press the same button until something happens" walks onto it on the second press. |
+| 4 | two doors | Transfer, as a forced choice. Two identical corridors, one surface at the end of each, equidistant. Every solution commits to a belief, so this room yields a measurement whatever the agent does. |
+| 5 | reorientation | Introduce the deflector, load-bearing: the exit is behind it and unreachable otherwise. |
+| 6 | assembly | Everything at once. Nothing new. This is the room that says whether the first five stuck. |
+| — | **the swap** | Silent. Nothing is said in the hidden arm; one sentence in the announced one. |
+| 7 | the same two | Maximum contradiction. The long route the agent spent six rooms learning to prefer is now fatal; the short route it learned to fear is now the answer, four presses from the start. |
+| 8 | transfer | New geometry. The revised rule has to be combined with the deflector rule that never changed. |
+
+A test asserts every one of those claims that can be asserted: that rooms 1 and 2
+contain no fatal press from any pose, that the hazard appears first in room 3 and
+the deflector first in room 5, that no two rooms are finished by the same button
+sequence, and — for room 7 — that replaying the pre-change solution under the new
+rules is fatal *and* the post-change solution is fatal under the old ones.
+
+That last test is the one that matters most. Without it, room 7 could drift into
+being merely confusing rather than contradictory, and a null result there would
+mean nothing.
 
 ### The real rules (the agent never sees these)
 
@@ -71,9 +113,42 @@ striding onto the thing it is sure about.
 
 That's the whole experiment. Everything else is scaffolding to watch it cleanly.
 
+### What the agent has to predict, and why it isn't an event label
+
+Before every press the agent commits to four things, each of which a person
+watching the screen could check:
+
+- `end_position` — the square it will be standing on when everything settles
+- `position_changed` — whether it will be anywhere other than where it is
+- `returned_to_start` — whether it will be on the square this room began on
+- `room_changed` — whether the next turn will be in a different room
+
+Any of them can be `null`, meaning "I'm not saying". A null is recorded as
+declining and is **never** counted wrong. Everything else is compared with `===`,
+so "was the agent right" is arithmetic. No language model ever judges another
+language model's prose anywhere in this project.
+
+The obvious alternative was one event label — *move / blocked / deflected /
+death / room_complete*. It reads better and it is wrong twice over.
+
+**It leaks.** Those words are in the system prompt from turn one. An agent
+standing in room 1, which contains nothing that can hurt it, would have been told
+that *dying* and *being deflected* are things this world does — two rooms before
+the first and four before the second. The whole point of the curriculum is that
+each idea arrives exactly once, when a room introduces it.
+
+**And it forces a false choice.** A press can be deflected *onto* the exit. A
+single label needs an arbitrary precedence rule, and the agent would then be
+scored partly on guessing a labelling convention instead of on understanding the
+world. Four independent yes/nos compose freely.
+
+`returned_to_start` is what being sent back *looks like*. `room_changed` is what
+finishing *looks like*. The agent is free to write "I think that tile kills you"
+in its free-text field; nothing scores it.
+
 ### Two ways of remembering
 
-The point of the project is comparing these:
+The sub-experiment:
 
 - **Flat memory** — one block of free text. Rewrite it however you like.
 - **Structured memory** — a list of separate beliefs, each with an ID, the claim,
@@ -89,9 +164,53 @@ Both get the same model, the same information, the same budget, the same size
 limit, and — importantly — the same explicit permission to correct anything they
 previously wrote. A rigged comparison would be worthless.
 
+### What counts as having recovered
+
+This is the definition, fixed before any run. The agent has recovered when
+**both** have happened after the change:
+
+- **R1** — it makes a **correct prediction about something the change actually
+  altered**. Not any correct prediction: the engine resolves every press twice,
+  once under each rule set, and records exactly which of the four fields read
+  differently. R1 requires a correct call on one of *those*.
+- **R2** — it **finishes a room** after the change.
+
+**The old definition was three correct predictions in a row, and it was broken.**
+Three presses down an empty corridor look identical before and after the swap. An
+agent that had revised nothing at all could satisfy it by being able to count
+squares, and the instrument would report a recovery. There is now a test named
+`ORDINARY MOVEMENT ACCURACY CANNOT TRIGGER RECOVERY` that feeds ten consecutive
+correct ordinary predictions *plus* a finished room and asserts the agent is
+still not recorded as recovered.
+
+R2 is in there because a prediction is cheap and a room is not. An agent can be
+right about a surface and never act on it.
+
+**Reaching room 8 is reported next to recovery, not folded into it.** It is a
+much harder bar, and folding it in would make `recovered` false for nearly every
+run in every arm — a number that is always zero separates nothing.
+
+Alongside that, the run records: how long detection took *measured from the first
+press that could possibly have revealed the change* (measuring from the flip
+punishes the agent for time it had no way to use), how many presses were wrong in
+exactly the way the dead rule would have been wrong, how many times it walked
+onto the surface that used to be the exit and how many of those cost it the room,
+and how much accuracy it lost on the rules that did **not** change — which is the
+only collateral-damage measure that works for a flat store, since free text has
+no statuses to demote.
+
 ---
 
 ## 3. How the agent actually performed
+
+> **Everything in §3 and §3b happened on earlier versions of this instrument.**
+> No agent has been run under the v4 curriculum, prompt, prediction schema or
+> recovery criterion. These runs are kept because they are what motivated the
+> rebuild — each of the four defects fixed in v4 was found by watching a real
+> agent hit it — but none of their numbers can be rescored: a v3 step recorded a
+> single `predicted_position` where a v4 step records four separate claims, and
+> every current metric is computed from the latter. The recordings are in
+> `runs/archive-engine-v1/`, `-v2/` and `-v3/`.
 
 Here's the part you probably want. Three runs, narrated.
 
@@ -332,6 +451,48 @@ marked as contaminated in the log. It's also a perfect illustration of the
 reviewer's point: a hand-driven process with no saved prompts can't be audited.
 The app now saves the exact prompt for every step.
 
+### 4b. What the v4 rebuild found
+
+Four more, and the first two are worse than anything above because they were
+silently corrupting the experiment rather than crashing it.
+
+**Every arm was warned that the rules might change.** The system prompt ended
+with *"the rules of this world are usually stable, but they are not guaranteed to
+stay that way."* That sentence lived in the block common to **all three
+conditions**. So the *hidden* arm — whose entire definition is that it is not
+warned — was warned. The *stable* arm was warned about something that never
+happens to it. And the *announced* arm's single sentence, which was supposed to
+be the only thing distinguishing it, was no longer distinguishing anything. The
+project's central comparison had been quietly collapsed, in one sentence, from
+the very first run. It is gone, and a test now asserts that the word *"rule"*
+does not appear anywhere in what a hidden-arm agent is sent.
+
+**No hand-driven run ever applied the rule change.** `scripts/smoke.ts` had its
+`maybeIntervene` function declared *inside* another function — one stray brace —
+so nothing could reach it. Every hand-stepped run in this repository's history
+was effectively a `stable` run, whatever its filename said, including all the
+ones named `structured-hidden-manual-*`. Nothing caught it because `scripts/` was
+never typechecked. It is now, and an unused-symbol check found it on the first
+pass. (It didn't change any published finding — no hand-driven run ever reached
+room 7 — but it would have, the first time one did.)
+
+**The recovery metric could be satisfied by walking in a straight line.** Covered
+in §2: three correct predictions in a row, of anything, counted as having
+recovered from a rule change. This is the one I'd most want someone else to check
+my fix on, because it's the kind of defect that produces *publishable-looking
+numbers* rather than an obvious crash.
+
+**Two rooms had the same answer.** Rooms 1 and 2 were both finished by `AABB`.
+Room 2's whole job is to confirm that the *surface* ends a room rather than the
+square or the sequence — and an agent could have satisfied it by replaying four
+button presses. Caught by writing the assertion, not by playing. There is now a
+test that no two rooms share a solution.
+
+The pattern across all four, and across §4's list too: **tests check that the
+code does what it says. They cannot check that what it says is the right thing to
+say.** Every one of these was found by writing down a claim the project was
+implicitly making and then asking whether anything enforced it.
+
 ---
 
 ## 5. One design change worth explaining
@@ -351,27 +512,33 @@ the floor rules, because a floor rule is what the experiment actually changes.
 ## 6. What we can honestly claim right now
 
 **Can say:**
-- The world is built, deterministic, and verified. 32 automated checks.
-- All eight rooms are proven solvable, and proven *unsolvable* without the
-  mechanics they claim to teach.
-- The two intervention rooms work under both rule sets, with the change costing
-  6–7 extra moves, so a stale belief actually hurts.
+- The world is built, deterministic, and verified. **66 automated checks**, plus
+  typechecking on the app, the scripts and the server.
+- All eight rooms are proven solvable, proven *unsolvable* without the mechanics
+  they claim to teach, and proven not to share a solution with each other.
+- Rooms 1 and 2 are proven to contain no fatal press from any pose, and proven
+  to be unreachable by the swap — so the "no hazard while learning the controls"
+  claim cannot be broken by a later edit to which glyph kills.
+- Room 7 is proven contradictory in the strong sense: the pre-change solution is
+  fatal after the change, and the post-change solution is fatal before it.
+- Rooms 7 and 8 are proven finishable **through the runner**, in all three
+  conditions, within budget — not just solvable on paper.
+- The recovery criterion is proven immune to ordinary movement accuracy.
+- The hidden arm is proven to receive no hint that anything can change.
 - A real agent, starting from nothing, discovers the controls, forms theories,
   labels its own uncertainty, corrects itself, and builds plans on top of
-  beliefs.
-- The instrument can produce *both* clean revision and total failure to revise,
-  on demand.
+  beliefs — **on the previous instrument.**
 
 **Cannot say:**
+- **Anything at all about agent behaviour under v4.** Not one model call has been
+  made against the new curriculum, prompt, schema or metrics. Everything in §3
+  and §3b describes an instrument that has since been rebuilt in four places, at
+  least two of which were actively distorting what it measured.
 - **Nothing about which memory style is better.** Every model run so far used
-  structured memory. There is no flat-memory run. There is no comparison. This is
-  the project's headline question and it is currently untested.
-- Nothing statistical. One run per condition.
+  structured memory. There is no flat-memory run. There is no comparison.
+- Nothing statistical. One run per condition, on the old instrument.
 - No agent has yet reached the rule change using knowledge it learned itself —
-  the adaptation runs used memory I wrote.
-- **On the current engine, the only agent evidence that exists is room 1.**
-  Everything about adaptation comes from the archived pre-rebuild runs and has
-  not been reproduced since.
+  the adaptation runs used memory I wrote, on a world that no longer exists.
 
 ---
 
@@ -386,17 +553,21 @@ the floor rules, because a floor rule is what the experiment actually changes.
    nothing and needs no key.
 1. **One full run through all eight rooms from empty memory**, reaching the
    change through genuinely earned knowledge. Everything else is guessing until
-   this exists. Give it 25-30 presses per room, not 15 — this agent spends
+   this exists. Give it 25–30 presses per room, not 15 — this agent spends
    heavily on hypothesis tests and the earlier budget made the failure about the
    allowance rather than the reasoning.
-2. **The same run with flat memory.** Then, for the first time, there's a
-   comparison.
-3. **Repeat the prediction-echo result properly.** It's currently the most
-   interesting finding and the least supported.
-4. **Add a return to the old rule (A → B → A).** It's the cheapest way to tell
+2. **The stable arm, same budget.** It is the control for the whole curriculum:
+   without it, a collapse in rooms 7–8 cannot be separated from those two rooms
+   simply being harder than the six before them.
+3. **The same run with flat memory.** Then, for the first time, there's a
+   comparison — and it is a sub-experiment, not the headline.
+4. **Repeat the prediction-echo result properly.** It's still the most
+   interesting finding and the least supported, and it has never been reproduced
+   on the current engine.
+5. **Add a return to the old rule (A → B → A).** It's the cheapest way to tell
    real revision apart from simply forgetting fast — a memory that only keeps
    recent things looks brilliant at adapting and hopeless at returning.
-5. **Then** make attribution ambiguous. Right now a single contradiction points
+6. **Then** make attribution ambiguous. Right now a single contradiction points
    at exactly one culprit, which may make careful revision and crude
    "retest whatever broke" the same thing. That's the biggest open threat to the
    whole idea.
@@ -405,7 +576,8 @@ the floor rules, because a floor rule is what the experiment actually changes.
 
 ## 8. One-line summary
 
-A small world where an AI learns rules by poking at them, and one rule is changed
-behind its back — plus the finding that whether it notices depends partly on
-something that seemed like a formatting detail: whether you bother to remind it
-what it predicted.
+A small world where an agent has to work out the rules from nothing across six
+rooms, then has one of them changed behind its back — built so that "did it
+notice, and what did it break fixing it" is arithmetic rather than an opinion,
+and rebuilt once the old version turned out to be warning every arm about the
+change and calling three steps down a corridor a recovery.

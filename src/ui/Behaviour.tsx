@@ -3,9 +3,10 @@ import {
   beliefTracks,
   computeMetrics,
   verdictOf,
-  RECOVERY_STREAK,
+  RECOVERY_CRITERION,
   type StepRecord,
 } from '../metrics.ts';
+import { PREDICTION_FIELDS, type Prediction } from '../agent/schema.ts';
 
 /**
  * Views for reading what the agent is doing, rather than what it wrote.
@@ -26,6 +27,25 @@ const STATUS_COLOR: Record<string, string> = {
 
 function pos(p: { x: number; y: number } | null | undefined) {
   return p ? `${p.x},${p.y}` : '—';
+}
+
+/**
+ * One line for four independent claims: the end square, then a letter per
+ * remaining field — m(oved), s(tart), r(oom) — upper case for "yes", lower for
+ * "no", absent when the agent declined. Compact enough to scan a whole run.
+ */
+function saidShort(p: Prediction | null | undefined) {
+  if (!p) return '—';
+  const flags = PREDICTION_FIELDS.filter((f) => f !== 'end_position')
+    .map((f) => {
+      const v = p[f] as boolean | null;
+      if (v === null || v === undefined) return '';
+      const letter = f === 'position_changed' ? 'm' : f === 'returned_to_start' ? 's' : 'r';
+      return v ? letter.toUpperCase() : letter;
+    })
+    .join('');
+  const end = p.end_position ? `${p.end_position.x},${p.end_position.y}` : '·';
+  return flags ? `${end} ${flags}` : end;
 }
 
 /** Step-by-step: what it committed to, and whether the world agreed. */
@@ -66,7 +86,9 @@ export function PredictionLedger({
           return (
             <div key={i}>
               {firstAfter && (
-                <div className="rulebreak">rule changed — striped surface no longer carries</div>
+                <div className="rulebreak">
+                  rule changed — the two marked surfaces have traded meanings
+                </div>
               )}
               <div
                 className={`lrow ${v === true ? 'hit' : v === false ? 'miss' : 'abstain'} ${
@@ -78,7 +100,7 @@ export function PredictionLedger({
                 <span className="dim">{s.global_step}</span>
                 <span className="dim">{s.level}</span>
                 <span className="btn">{s.button}</span>
-                <span>{pos(s.predicted_position)}</span>
+                <span>{saidShort(s.expect)}</span>
                 <span>{pos(s.researcher.entity_after)}</span>
                 <span>
                   {v === true ? '✓' : v === false ? '✗' : '·'}
@@ -91,8 +113,10 @@ export function PredictionLedger({
         })}
       </div>
       <p className="legend">
-        ✓ predicted correctly · ✗ wrong · · declined to predict · ★ room ended ·
-        ⌁ this press would look different under the other rule set
+        said = end square, then m/s/r for position changed, back on the starting square, room
+        changed — capital for yes, absent when it declined. ✓ every committed field right · ✗ at
+        least one wrong · · committed to nothing · ★ room ended · ⌁ this press would look
+        different under the other rule set
       </p>
     </div>
   );
@@ -184,14 +208,26 @@ export function MetricsPanel({ steps }: { steps: StepRecord[] }) {
         <dd>{m.totalActions}</dd>
         <dt>Rooms solved</dt>
         <dd>{m.roomsSolved}</dd>
-        <dt>Prediction accuracy</dt>
+        <dt title="one committed field is one falsifiable claim">Prediction accuracy</dt>
         <dd>
           {pct}{' '}
           <span style={{ color: 'var(--dim)' }}>
-            ({m.predictionsCorrect}/{m.predictionsCommitted} committed,{' '}
-            {m.predictionsDeclined} declined)
+            ({m.fieldsCorrect}/{m.fieldsCommitted} fields, {m.predictionsDeclined} presses
+            committed to nothing)
           </span>
         </dd>
+        {m.hazardContacts.length > 0 && (
+          <>
+            <dt title="presses that put the entity on the surface that ends the run">
+              Hazard contacts
+            </dt>
+            <dd>
+              {m.hazardContacts
+                .map((h) => `r${h.level}: ${h.presses}${h.deaths ? ` (${h.deaths} fatal)` : ''}`)
+                .join(' · ')}
+            </dd>
+          </>
+        )}
       </dl>
 
       <h2 style={{ marginTop: 14 }}>After the rule changed</h2>
@@ -202,24 +238,47 @@ export function MetricsPanel({ steps }: { steps: StepRecord[] }) {
           <dl className="kv">
             <dt>Changed at step</dt>
             <dd>{m.interventionAtStep}</dd>
-            <dt title="the first press whose outcome differs between the old and new rules">
-              First telling press
+            <dt title="the first press whose outcome differs between the old and new rules — before this, there was nothing to notice">
+              First evidence
             </dt>
-            <dd>{m.firstTellingStep ?? 'not yet'}</dd>
-            <dt>First correct prediction</dt>
-            <dd>{m.firstCorrectAfterChange ?? 'not yet'}</dd>
-            <dt>First room solved</dt>
-            <dd>{m.firstSuccessAfterChange ?? 'not yet'}</dd>
-            <dt title={`${RECOVERY_STREAK} committed correct predictions in a row`}>
-              Recovered
+            <dd>{m.firstEvidenceStep ?? 'not yet'}</dd>
+            <dt title="R1 — first correct prediction on a field the change actually altered">
+              First revised prediction
             </dt>
-            <dd style={{ color: m.recoveredAtStep ? 'var(--green)' : 'var(--gold)' }}>
-              {m.recoveredAtStep ? `step ${m.recoveredAtStep}` : 'not yet'}
+            <dd>{m.firstRevisedPredictionStep ?? 'not yet'}</dd>
+            <dt title="R1 minus first evidence: presses spent with the evidence already in hand">
+              Detection delay
+            </dt>
+            <dd>{m.detectionDelay ?? '—'}</dd>
+            <dt title="R2 — first room finished after the change">Room finished after</dt>
+            <dd>{m.postChangeCompletionStep ?? 'not yet'}</dd>
+            <dt title={RECOVERY_CRITERION}>Recovered</dt>
+            <dd style={{ color: m.recovered ? 'var(--green)' : 'var(--gold)' }}>
+              {m.recovered ? `step ${m.recoveredAtStep}` : 'not yet'}
             </dd>
-            <dt title="telling presses made while still predicting wrongly">
-              Missed chances
+            <dt title="the last room, finished after the change — a harder bar than recovery">
+              Transfer
             </dt>
-            <dd>{m.tellingPressesBeforeRecovery}</dd>
+            <dd style={{ color: m.transferSucceeded ? 'var(--green)' : undefined }}>
+              {m.transferStep ? `step ${m.transferStep}` : 'not yet'}
+            </dd>
+            <dt title="committed predictions on altered fields that the world contradicted">
+              Violations on altered fields
+            </dt>
+            <dd>{m.ruleRelevantViolations}</dd>
+            <dt title="of those, the ones that were exactly what the dead rule predicted">
+              Stale-rule predictions
+            </dt>
+            <dd>{m.staleRulePredictions}</dd>
+            <dt title="presses onto the surface that used to end rooms">Stale-rule actions</dt>
+            <dd>
+              {m.staleRuleActions}
+              {m.staleRuleDeaths ? ` (${m.staleRuleDeaths} fatal)` : ''}
+            </dd>
+            <dt title="accuracy on fields the change did NOT alter, before minus after">
+              Collateral drop
+            </dt>
+            <dd>{m.collateralDrop === null ? '—' : `${Math.round(m.collateralDrop * 100)}pp`}</dd>
           </dl>
           {m.demotedAfterChange.length > 0 && (
             <p className="legend">
@@ -228,8 +287,8 @@ export function MetricsPanel({ steps }: { steps: StepRecord[] }) {
             </p>
           )}
           <p className="legend">
-            Recovery means {RECOVERY_STREAK} committed correct predictions in a row, fixed before
-            any run. A first success is not a recovery and is listed separately.
+            Recovery means {RECOVERY_CRITERION}, fixed before any run. Predicting an ordinary move
+            correctly cannot contribute to it, however many times in a row.
           </p>
         </>
       )}

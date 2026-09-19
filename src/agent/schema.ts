@@ -1,25 +1,59 @@
 import type { Button } from '../engine/types.ts';
 import type { Memory, StrategyName, StructuredEntry } from './memory.ts';
 
+/**
+ * What the agent commits to before each press.
+ *
+ * Four independent, falsifiable claims about what a person would see happen.
+ * Each may be null, which records "I am not saying" and is never scored as
+ * wrong — an agent that admits it does not know should not be punished for it.
+ *
+ * WHY THESE FOUR AND NOT AN EVENT LABEL. The obvious design is a single enum:
+ * move / blocked / deflected / death / room_complete. It is easier to read and
+ * it is wrong twice over. First, the labels name causes, and putting them in
+ * the schema tells a room-1 agent that dying and being thrown across the room
+ * are things this world does — before it has met either, and before the rooms
+ * that introduce them. Second, a single label forces an arbitrary precedence
+ * when a press does two things at once, so the agent is scored partly on
+ * guessing the labelling convention rather than on understanding the world.
+ *
+ * These four are each a yes/no a person could read off the screen, they
+ * compose freely, and they are compared with `===`. That is what makes "was the
+ * agent right" arithmetic rather than an opinion, and it is what every
+ * downstream measurement — the recovery criterion above all — is built on.
+ */
+export interface Prediction {
+  /** where the entity will be standing once everything has settled */
+  end_position: { x: number; y: number } | null;
+  /** whether it will be standing anywhere other than where it is now */
+  position_changed: boolean | null;
+  /** whether it will be standing on the square this room began on */
+  returned_to_start: boolean | null;
+  /** whether the next turn will be in a different room */
+  room_changed: boolean | null;
+}
+
+export const PREDICTION_FIELDS = [
+  'end_position',
+  'position_changed',
+  'returned_to_start',
+  'room_changed',
+] as const;
+
+export type PredictionField = (typeof PREDICTION_FIELDS)[number];
+
+export const EMPTY_PREDICTION: Prediction = {
+  end_position: null,
+  position_changed: null,
+  returned_to_start: null,
+  room_changed: null,
+};
+
 export interface AgentReply {
   button: Button;
   hypothesis: string;
   prediction: string;
-  /**
-   * Where the agent expects the entity to END UP, if it is willing to commit.
-   *
-   * The free-text `prediction` is for the human reading along; it cannot be
-   * scored, and scoring it by having a model judge the prose would invent a
-   * measurement out of nice writing. A coordinate can be compared to what
-   * actually happened with `===`, which turns "was the agent right" from an
-   * opinion into arithmetic — and that is what every downstream metric, the
-   * recovery criterion included, is built on.
-   *
-   * null is a legitimate answer and is recorded as "declined to commit", never
-   * as a wrong answer. An agent that says it does not know should not be
-   * punished for honesty.
-   */
-  predicted_position: { x: number; y: number } | null;
+  expect: Prediction;
   memory: Memory;
   contradiction: string | null;
 }
@@ -46,12 +80,55 @@ function strArray(v: unknown): string[] {
   return v.filter((s): s is string => typeof s === 'string').slice(0, 12);
 }
 
+/** A tri-state field: true, false, or "not saying". Anything else is an error. */
+function tri(v: unknown, field: string): { ok: true; value: boolean | null } | { ok: false; error: string } {
+  if (v === undefined || v === null) return { ok: true, value: null };
+  if (typeof v === 'boolean') return { ok: true, value: v };
+  return { ok: false, error: `expect.${field} must be true, false or null` };
+}
+
+function parsePrediction(raw: unknown): { ok: true; value: Prediction } | { ok: false; error: string } {
+  if (raw === undefined || raw === null) return { ok: true, value: { ...EMPTY_PREDICTION } };
+  if (typeof raw !== 'object') return { ok: false, error: 'expect must be an object or null' };
+  const o = raw as Record<string, unknown>;
+
+  let end: { x: number; y: number } | null = null;
+  const ep = o.end_position;
+  if (ep !== undefined && ep !== null) {
+    if (typeof ep !== 'object') return { ok: false, error: 'expect.end_position must be {x,y} integers or null' };
+    const p = ep as Record<string, unknown>;
+    if (!Number.isInteger(p.x) || !Number.isInteger(p.y))
+      return { ok: false, error: 'expect.end_position must be {x,y} integers or null' };
+    end = { x: p.x as number, y: p.y as number };
+  }
+
+  const moved = tri(o.position_changed, 'position_changed');
+  if (!moved.ok) return moved;
+  const back = tri(o.returned_to_start, 'returned_to_start');
+  if (!back.ok) return back;
+  const room = tri(o.room_changed, 'room_changed');
+  if (!room.ok) return room;
+
+  return {
+    ok: true,
+    value: {
+      end_position: end,
+      position_changed: moved.value,
+      returned_to_start: back.value,
+      room_changed: room.value,
+    },
+  };
+}
+
 /**
  * Strict validation of one model response.
  *
  * A malformed reply performs NO action. It must never be repaired into a guess
  * or replaced by a random button — that would silently convert a model failure
  * into a world interaction and contaminate every downstream measurement.
+ *
+ * An absent or null `expect` is NOT malformed: it is the agent declining on all
+ * four fields, which is a legitimate answer and is recorded as such.
  */
 export function validate(raw: unknown, strategy: StrategyName): Validation {
   if (typeof raw !== 'object' || raw === null) return { ok: false, error: 'response was not a JSON object' };
@@ -64,6 +141,9 @@ export function validate(raw: unknown, strategy: StrategyName): Validation {
   if (hypothesis === null) return { ok: false, error: 'hypothesis must be a string' };
   const prediction = str(o.prediction, 400);
   if (prediction === null) return { ok: false, error: 'prediction must be a string' };
+
+  const expect = parsePrediction(o.expect);
+  if (!expect.ok) return { ok: false, error: expect.error };
 
   let memory: Memory;
   if (strategy === 'flat') {
@@ -94,21 +174,13 @@ export function validate(raw: unknown, strategy: StrategyName): Validation {
     memory = { kind: 'structured', entries };
   }
 
-  let predicted: { x: number; y: number } | null = null;
-  const pp = o.predicted_position as Record<string, unknown> | null | undefined;
-  if (pp && typeof pp === 'object') {
-    if (Number.isInteger(pp.x) && Number.isInteger(pp.y))
-      predicted = { x: pp.x as number, y: pp.y as number };
-    else return { ok: false, error: 'predicted_position must be {x,y} integers or null' };
-  }
-
   return {
     ok: true,
     reply: {
       button: button as Button,
       hypothesis,
       prediction,
-      predicted_position: predicted,
+      expect: expect.value,
       memory,
       contradiction: str(o.contradiction, 400) || null,
     },
