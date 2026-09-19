@@ -4,18 +4,24 @@ import type { Cell, Dir, Level } from './types.ts';
 // Glyph legend (engine + researcher view only — never shown to the agent):
 //   . ,  two plain floors that look different and behave identically
 //   #    solid block
-//   ~    striped surface   (carries the entity along its travel direction)
-//   /    diagonal surface  (deflects travel 90 deg clockwise, one more cell)
-//   O    concentric surface (ends the level when the entity finishes on it)
+//   /    diagonal surface — deflects travel 90 deg clockwise, one more cell
+//   O    concentric surface (rings)
+//   X    radial surface     (spokes)
 //
-// Out of bounds is impassable, so no wall border is needed and none is drawn.
+// Under the original rules O ends the room and X kills. The rule change swaps
+// them. Neither changes appearance.
 //
-// EVERY room declares `requires`: the surfaces without which it must be
-// UNSOLVABLE. `npm run verify` bans each one and re-solves, so a room that
-// claims to teach the strip has to actually be impassable without it. This is
-// not ceremony — two rooms shipped as decoration before this check existed, and
-// neither was catchable by playing, because an author only ever plays the route
-// they already intended.
+// TEMPTATION, BY CONSTRUCTION. The agent sees two centred, symmetrical figures
+// and has no way to know which one it wants. It needs no contrived shortcut to
+// be lured onto the lethal one — it only needs the lethal one to be the nearer
+// of the two, which is how the early rooms are laid out. A greedy agent walks
+// into it and learns what it does; a cautious one may not, and then arrives at
+// the intervention never having seen that surface do anything. That risk is
+// deliberate and is part of what this design is testing.
+//
+// EVERY room declares `requires`: surfaces without which it must be UNSOLVABLE.
+// `npm run verify` bans each one and re-solves. Every room must also be
+// solvable under BOTH rule sets, so the swap can be applied anywhere.
 
 interface Spec {
   name: string;
@@ -26,14 +32,14 @@ interface Spec {
 
 const SPECS: Spec[] = [
   {
-    // 1 — that rooms can end at all. A corridor with the target at the far end,
-    // so almost any run of presses arrives there. The only thing to learn here
-    // is that the concentric surface finishes a room; turning comes next.
-    name: 'the end of a room',
+    // 1 — that rooms end, and that one of these two surfaces is not the way to
+    // end them. The radial sits directly between the start and the rings, two
+    // presses away against four. Pressing one button twice reaches it.
+    name: 'two targets',
     rows: [
       '##O##',
-      '##.##',
       '#...#',
+      '#.X.#',
       '#...#',
       '#...#',
     ],
@@ -41,125 +47,126 @@ const SPECS: Spec[] = [
     requires: [],
   },
   {
-    // 2 — that there is more than one direction. An L-shaped corridor: the
-    // button that worked in room 1 runs into the corner and stops, so a second
-    // button has to be found and told apart from the first.
+    // 2 — a second direction, with the lethal surface one press from the start
+    // and the rings a long way round an L. Maximum lure, no coercion.
     name: 'the corner',
     rows: [
       '#####',
       '#...O',
       '#.###',
-      '#.###',
-      '#.###',
+      '#.#X#',
+      '#...#',
     ],
-    start: [1, 4, 0],
+    start: [3, 4, 0],
     requires: [],
   },
   {
-    // 3 — obstacles. The target sits in a pocket whose only mouth faces away
-    // from the approach, so the straight line fails and the room has to be
-    // read rather than charged at.
-    name: 'the pocket',
-    rows: [
-      '.,.,.,.',
-      ',.###.,',
-      '.,#O#,.',
-      ',.,.,.,',
-      '.,.,.,.',
-    ],
-    start: [3, 0, 2],
-    requires: [],
-  },
-  {
-    // 4 — the striped surface, and it is the only way in. The target sits at
-    // the far end of a strip with solid on every other side, so the carry is
-    // met head-on rather than stumbled past.
-    name: 'the strip',
-    rows: [
-      '.,.,.,.',
-      '.,.,.,.',
-      '#####.#',
-      'O~~~~.#',
-    ],
-    start: [5, 0, 2],
-    requires: ['~'],
-  },
-  {
-    // 5 — the diagonal surface, and being deflected by it is the only way in.
-    // The target corridor has solid on every side; the single opening is the
-    // cell the deflector throws you into, so the room cannot be finished
-    // without noticing that travel gets turned.
-    //
-    // An earlier draft put the deflector at the end of a corridor where it
-    // fired into a wall and did nothing. The room still passed "solvable" and
-    // still passed "requires the diagonal" — it was merely required as a place
-    // to stand. Being required is not the same as being demonstrated.
+    // 3 — the deflector, and being deflected is the only way into the pocket
+    // holding the rings. A radial sits in plain view on the way there.
     name: 'reorientation',
     rows: [
       '#######',
       '#/..O##',
       '#.#####',
-      '#.#####',
+      '#.##X##',
       '.,.,.,.',
     ],
     start: [5, 4, 0],
     requires: ['/'],
   },
   {
-    // 6 — both, chained, in a single press. Ride the strip east; it sets the
-    // entity down on the deflector, which turns the travel south and drops it
-    // into the mouth of the target pocket. Banning either surface seals the
-    // pocket completely.
+    // 4 — open ground, both surfaces visible, nothing forced. Which one the
+    // agent walks to is entirely its own call, and by now it should have a
+    // reason for the choice.
+    name: 'open ground',
+    rows: [
+      '.,.,.,O',
+      ',.,.,.,',
+      '.,.X.,.',
+      ',.,.,.,',
+      '.,.,.,.',
+    ],
+    start: [0, 4, 0],
+    requires: [],
+  },
+  {
+    // 5 — a clean forced choice. Two identical corridors, one surface at the end
+    // of each, exactly the same distance away. Nothing about the room favours
+    // either. An agent that has learned which is which walks straight to it; one
+    // that has not is guessing, and the room says so.
+    //
+    // The first draft of this room put the radial behind the rings, so after the
+    // swap the winning surface sat on the far side of a lethal one and the room
+    // became unwinnable. The reachability check caught it.
+    name: 'two doors',
+    rows: [
+      '#######',
+      '#X###O#',
+      '#.###.#',
+      '#.###.#',
+      '#..,..#',
+    ],
+    start: [3, 4, 0],
+    requires: [],
+  },
+  {
+    // 6 — everything in one room, with a long way round and a short way that
+    // ends badly.
     name: 'assembly',
     rows: [
       '.,.,.,.##',
-      ',.,.,.,##',
-      '.~~~~~~/#',
-      '#######.#',
-      '#######O#',
+      ',.####.,#',
+      '.,#OX#.,#',
+      ',.#..#.,#',
+      '.,./#,.,.',
     ],
-    start: [0, 0, 2],
-    requires: ['~', '/'],
+    start: [8, 4, 0],
+    requires: ['/'],
   },
   {
-    // 7 — the intervention room. The target is walled in behind the strip, so
-    // the strip must be entered under either rule set; only the price changes.
-    // With the carry, one press crosses the room and ends it. Without it, the
-    // same press advances one cell and the strip is walked. That makes the
-    // first press onto it the discriminating observation.
-    name: 'the same strip',
-    rows: [
-      '.,.,.,.##',
-      ',.,.,.,##',
-      '.~~~~~~O#',
-      ',.,.,.,##',
-    ],
-    start: [0, 3, 0],
-    requires: ['~'],
-  },
-  {
-    // 8 — transfer, at a different orientation, and the widest price gap in the
-    // campaign. The strip runs the full width westward and sets the entity down
-    // on a diagonal that turns it north into the target corridor, so the
-    // corrected strip rule has to be combined with the diagonal rule that never
-    // changed.
+    // 7 — the intervention room. Both surfaces sit side by side at the end of
+    // the same corridor, equally reachable, so the room is solvable under
+    // either rule set and the geometry is identical in every condition.
     //
-    // Solvable under both rule sets; only the cost differs, and it differs a
-    // lot — one press with the carry against eight without. An earlier draft
-    // used a three-cell strip, where the carry saved so little that an agent
-    // still holding the stale rule would barely be punished for it. A transfer
-    // room has to make the difference legible.
+    // An agent still carrying the original rule walks onto the rings and dies.
+    // The room stays winnable afterwards — the other surface is one cell away —
+    // so what this measures is recovery, not luck.
+    // The first draft put the two surfaces side by side in a dead end, so the
+    // radial was reachable only by walking over the rings. After the swap that
+    // left the winning surface behind a lethal one and the room was unwinnable.
+    // Now each sits at the end of its own branch.
+    //
+    // The result is the sharpest room in the campaign. Under the original rules
+    // the short route up the right-hand column ends on the lethal surface and
+    // the rings must be reached the long way round. After the swap those two
+    // facts trade places exactly: the short route is now correct and the long
+    // one is fatal.
+    name: 'the same two',
+    rows: [
+      '#########',
+      '#.,.,.O.#',
+      '#.#####.#',
+      '#.#####X#',
+      '.,.,.,.,.',
+    ],
+    start: [4, 4, 0],
+    requires: [],
+  },
+  {
+    // 8 — transfer. New geometry, both surfaces behind a deflector, so the
+    // corrected knowledge of which one to aim for has to be combined with the
+    // deflector rule that never changed.
     name: 'transfer',
     rows: [
-      'O########',
-      '.########',
-      '/~~~~~~~.',
-      '########.',
+      '##XO#####',
+      '##..#####',
+      '##/######',
+      '#..######',
       '.,.,.,.,.',
       ',.,.,.,.,',
     ],
-    start: [0, 5, 0],
-    requires: ['~', '/'],
+    start: [7, 5, 0],
+    requires: ['/'],
   },
 ];
 
@@ -176,5 +183,5 @@ export const LEVELS: Level[] = SPECS.map((s, i) => ({
 /** Level index (1-based) at which a scheduled rule change takes effect. */
 export const INTERVENTION_BEFORE_LEVEL = 7;
 
-/** Rooms that must remain solvable under both rule sets. */
-export const DUAL_REGIME_LEVELS = [7, 8];
+/** Rooms that must stay solvable under both rule sets — here, all of them. */
+export const DUAL_REGIME_LEVELS = LEVELS.map((l) => l.id);

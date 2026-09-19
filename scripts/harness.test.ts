@@ -167,7 +167,7 @@ test('the budget binds on neither arm at a realistic knowledge load', () => {
 test('memory persists across rooms, and a fresh run inherits nothing', () => {
   const run = new Run(cfg(), noop);
   (run as any).state.memory = { kind: 'structured', entries: [{ id: 'k', claim: 'kept', conditions: '', status: 'confirmed', supported_by: [], contradicted_by: [], depends_on: [] }] };
-  for (let i = 0; i < 4; i++) run.pressManual('A'); // room 1 solves in AAAA
+  for (const b of 'ABAADA') run.pressManual(b as any); // room 1's shortest safe route
   assert.equal(run.state.levelIndex, 1, 'should have advanced a room');
   assert.match(renderMemory(run.state.memory), /kept/, 'memory must survive the room change');
 
@@ -183,7 +183,7 @@ test('the press that finishes a room is reported in the next observation', () =>
   // observation that shows it. What the new room must reset is the POSE, not
   // the report of how the last room ended.
   const run = new Run(cfg(), noop);
-  for (let i = 0; i < 4; i++) run.pressManual('A'); // room 1 solves in AAAA
+  for (const b of 'ABAADA') run.pressManual(b as any); // room 1's shortest safe route
   assert.equal(run.state.levelIndex, 1, 'should have advanced');
 
   const obs = run.observation();
@@ -249,17 +249,17 @@ test('the change notice appears only in the announced condition, only once', () 
 test('the intervention fires on entering room 7, and never in the stable condition', () => {
   for (const condition of ['hidden', 'notified'] as const) {
     const run = new Run(cfg({ condition }), noop);
-    assert.equal(run.state.rules.slipperyEnabled, true);
+    assert.equal(run.state.rules.swapped, false, 'runs start in the original world');
     (run as any).state.levelIndex = 5;
     (run as any).advanceLevel(true);
     assert.equal(run.state.levelIndex, 6, 'should be in room 7');
-    assert.equal(run.state.rules.slipperyEnabled, false, `${condition} must apply the change`);
+    assert.equal(run.state.rules.swapped, true, `${condition} must apply the change`);
     assert.notEqual(run.state.interventionAtStep, null);
   }
   const stable = new Run(cfg({ condition: 'stable' }), noop);
   (stable as any).state.levelIndex = 5;
   (stable as any).advanceLevel(true);
-  assert.equal(stable.state.rules.slipperyEnabled, true);
+  assert.equal(stable.state.rules.swapped, false, 'a stable run never swaps');
   assert.equal(stable.state.interventionAtStep, null);
 });
 
@@ -272,7 +272,7 @@ test('a branched continuation carries the memory and applies the change on entry
   const branch = new Run(cfg({ condition: 'hidden' }), noop, snap);
   assert.equal(branch.state.levelIndex, 6);
   assert.match(renderMemory(branch.state.memory), /from the prefix/);
-  assert.equal(branch.state.rules.slipperyEnabled, false, 'the change must be live on arrival');
+  assert.equal(branch.state.rules.swapped, true, 'the change must be live on arrival');
 
   // and the branches must not share memory objects
   (branch as any).state.memory.entries[0].claim = 'mutated';
@@ -283,7 +283,7 @@ test('a manual rule change tags the run so it cannot pool with experiments', () 
   const run = new Run(cfg(), noop);
   assert.ok(!run.summary().manual_intervention);
   run.forceRuleChange();
-  assert.equal(run.state.rules.slipperyEnabled, false);
+  assert.equal(run.state.rules.swapped, true);
   assert.equal(run.summary().manual_intervention, true);
 });
 
@@ -315,7 +315,7 @@ function rec(over: Partial<StepRecord> & { step: number }): StepRecord {
     contradiction: null,
     level_complete: false,
     researcher: {
-      true_rules: { slipperyEnabled: false },
+      true_rules: { swapped: true },
       entity_before: { x: 0, y: 0, dir: 0 },
       entity_after: { x: 1, y: 0, dir: 1 },
       blocked: false,

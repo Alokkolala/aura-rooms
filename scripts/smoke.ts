@@ -20,7 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { CHANGED_RULES, DEFAULT_RULES, step } from '../src/engine/engine.ts';
-import { LEVELS } from '../src/engine/levels.ts';
+import { INTERVENTION_BEFORE_LEVEL, LEVELS } from '../src/engine/levels.ts';
 import { buildObservation, pose, auditForLeaks } from '../src/engine/observation.ts';
 import { ENGINE_VERSION, type Button, type EntityState, type Rules } from '../src/engine/types.ts';
 import { applyMemory, emptyMemory, renderMemory, type Memory, type StrategyName } from '../src/agent/memory.ts';
@@ -46,6 +46,8 @@ interface State {
   lastInvalid: string | null;
   lastPrediction: string | null;
   previousRoom: any;
+  condition: 'stable' | 'hidden' | 'notified';
+  interventionAtStep: number | null;
   seededMemory: boolean;
 }
 
@@ -74,7 +76,22 @@ function observation(s: State) {
     actionsUsed: s.levelStep,
     actionsRemaining: s.budget - s.levelStep,
     previousRoom: s.previousRoom ?? undefined,
+    notice:
+      s.condition === 'notified' &&
+      s.levelIndex + 1 === INTERVENTION_BEFORE_LEVEL &&
+      s.levelStep === 0
+        ? 'One of the rules of this world has changed.'
+        : undefined,
   });
+
+/** Apply the scheduled hidden change on entering the intervention room. */
+function maybeIntervene(s: State) {
+  if (s.condition === 'stable' || s.interventionAtStep !== null) return;
+  if (s.levelIndex + 1 !== INTERVENTION_BEFORE_LEVEL) return;
+  s.rules = { ...CHANGED_RULES };
+  s.interventionAtStep = s.globalStep;
+  console.log(`  [researcher] RULE CHANGED on entering room ${INTERVENTION_BEFORE_LEVEL}`);
+}
 }
 
 function init() {
@@ -101,6 +118,8 @@ function init() {
     lastInvalid: null,
     lastPrediction: null,
     previousRoom: null,
+    condition: (arg('condition') as State['condition']) ?? (flag('changed') ? 'hidden' : 'stable'),
+    interventionAtStep: null,
     seededMemory: Boolean(seedFile),
   };
   fs.mkdirSync(RUNS, { recursive: true });
@@ -122,7 +141,7 @@ function init() {
       'Starting room: ' + (levelIndex + 1),
   });
   save(s);
-  console.log(`started ${s.runId} — room ${levelIndex + 1}, ${strategy} memory, rules ${s.rules.slipperyEnabled ? 'original' : 'CHANGED'}`);
+  console.log(`started ${s.runId} — room ${levelIndex + 1}, ${strategy} memory, rules ${s.rules.swapped ? 'CHANGED' : 'original'}`);
 }
 
 function prompt() {
@@ -192,6 +211,7 @@ function apply(file: string) {
     before: pose(before),
     after: pose(r.state),
     level_complete: r.complete,
+    ...(r.died ? { died: true } : {}),
   };
 
   append(s, {
@@ -208,6 +228,8 @@ function apply(file: string) {
     button: v.reply.button,
     hypothesis: v.reply.hypothesis,
     prediction: v.reply.prediction,
+    predicted_position: v.reply.predicted_position,
+    model_response_raw: raw,
     contradiction: v.reply.contradiction,
     observation_after: observation(s),
     level_complete: r.complete,
@@ -217,9 +239,10 @@ function apply(file: string) {
       entity_after: r.state,
       path: r.path,
       blocked: r.blocked,
+      died: r.died,
       auto_moved: r.autoMoved,
       discriminating_under_rule_change: discriminating,
-      intervention_applied: !s.rules.slipperyEnabled,
+      intervention_applied: s.interventionAtStep !== null,
       manual_intervention: true,
     },
   });
@@ -229,12 +252,21 @@ function apply(file: string) {
   console.log(`  predicted  : ${v.reply.prediction}`);
   console.log(
     `  happened   : ` +
-      (r.blocked
+      (r.died
+        ? `DIED on ${level.grid[r.path[r.path.length - 2]?.y ?? 0][r.path[r.path.length - 2]?.x ?? 0]} -> back to ${r.state.x},${r.state.y}`
+        : r.blocked
         ? 'nothing moved'
         : `${before.x},${before.y} ${pose(before).marker} -> ${r.state.x},${r.state.y} ${pose(r.state).marker}` +
           (r.autoMoved ? ` (carried ${r.autoMoved})` : '')) +
       (r.complete ? '  ** ROOM COMPLETE **' : ''),
   );
+  if (v.reply.predicted_position) {
+    const hit =
+      v.reply.predicted_position.x === r.state.x && v.reply.predicted_position.y === r.state.y;
+    console.log(
+      `  verdict    : ${hit ? 'HIT' : 'MISS'}  (said ${v.reply.predicted_position.x},${v.reply.predicted_position.y})`,
+    );
+  } else console.log('  verdict    : declined to predict');
   if (v.reply.contradiction) console.log(`  agent flags: ${v.reply.contradiction}`);
   if (discriminating) console.log(`  [researcher] this press distinguishes the two rule sets`);
   if (applied.rejected) console.log(`  [harness] ${applied.rejected}`);
@@ -266,7 +298,7 @@ function status() {
         room: s.levelIndex + 1,
         step: s.globalStep,
         levelStep: `${s.levelStep}/${s.budget}`,
-        rules: s.rules.slipperyEnabled ? 'original' : 'CHANGED',
+        rules: s.rules.swapped ? 'CHANGED' : 'original',
         entity: s.entity,
         memoryChars: renderMemory(s.memory).length,
         seededMemory: s.seededMemory,

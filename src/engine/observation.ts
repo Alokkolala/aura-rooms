@@ -14,9 +14,9 @@ const APPEARANCE: Record<Cell, string> = {
   '.': 'tile_0',
   ',': 'tile_1',
   '#': 'solid_tile',
-  '~': 'striped_tile',
   '/': 'diagonal_tile',
   O: 'concentric_tile',
+  X: 'radial_tile',
 };
 
 const MARKER = ['up', 'right', 'down', 'left'] as const;
@@ -32,6 +32,15 @@ export interface LastAction {
   before: Pose;
   after: Pose;
   level_complete: boolean;
+  /**
+   * The entity was returned to where the room started.
+   *
+   * Reported because it is plainly visible — a player would watch it happen.
+   * What is NOT reported is why: no surface is named, no cause is given, and
+   * nothing says it will happen again. Working out which surface did it, and
+   * whether that is still true later, is the agent's job.
+   */
+  died?: boolean;
 }
 
 /**
@@ -128,6 +137,13 @@ export const FORBIDDEN_TOKENS = [
   'slide',
   'slip',
   'rotate',
+  'lethal',
+  'kills',
+  'deadly',
+  'destroy',
+  'hazard',
+  'swap',
+  'restart',
   'north',
   'south',
   'east',

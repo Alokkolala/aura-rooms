@@ -32,6 +32,7 @@ export interface StepRecord {
     /** every intermediate pose, for the replay renderer */
     path?: EntityState[];
     blocked: boolean;
+    died?: boolean;
     auto_moved: number;
     discriminating_under_rule_change: boolean;
     intervention_applied: boolean;
@@ -65,6 +66,8 @@ export const RECOVERY_STREAK = 3;
 export interface Metrics {
   totalActions: number;
   roomsSolved: number;
+  deaths: number;
+  deathsAfterChange: number;
   /** committed predictions, and how many were right */
   predictionsCommitted: number;
   predictionsCorrect: number;
@@ -161,6 +164,8 @@ export function computeMetrics(steps: StepRecord[]): Metrics {
   const m: Metrics = {
     totalActions: steps.length,
     roomsSolved: steps.filter((s) => s.level_complete).length,
+    deaths: steps.filter((s) => s.researcher.died).length,
+    deathsAfterChange: steps.filter((s) => s.researcher.died && s.researcher.intervention_applied).length,
     predictionsCommitted: 0,
     predictionsCorrect: 0,
     predictionsDeclined: 0,

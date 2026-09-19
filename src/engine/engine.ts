@@ -3,6 +3,7 @@ import {
   DELTA,
   MAX_EFFECT_ITERATIONS,
   type Button,
+  type Cell,
   type Dir,
   type EntityState,
   type Level,
@@ -10,8 +11,16 @@ import {
   type StepResult,
 } from './types.ts';
 
-export const DEFAULT_RULES: Rules = { slipperyEnabled: true };
-export const CHANGED_RULES: Rules = { slipperyEnabled: false };
+export const DEFAULT_RULES: Rules = { swapped: false };
+export const CHANGED_RULES: Rules = { swapped: true };
+
+/** Which surface ends the room, and which one kills, under a given rule set. */
+export function goalGlyph(rules: Rules): Cell {
+  return rules.swapped ? 'X' : 'O';
+}
+export function lethalGlyph(rules: Rules): Cell {
+  return rules.swapped ? 'O' : 'X';
+}
 
 export function passable(level: Level, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= level.w || y >= level.h) return false;
@@ -29,13 +38,12 @@ function dirOf(d: readonly [number, number]): Dir {
 /**
  * Resolve automatic surface effects after the entity ENTERED a new cell.
  *
- * Effects fire on entry only. A rotation in place is not an entry, so it never
- * re-triggers the surface under the entity — that single rule is what makes
- * "turns don't retrigger" and "a blocked move has no effect" both fall out for
- * free, rather than needing special cases.
+ * Effects fire on entry only, i.e. only when the press actually changed the
+ * entity's cell — so a blocked press triggers nothing, with no special case.
  *
- * `d` is the delta of the move that brought the entity here; it is the
- * direction a striped surface carries it.
+ * Resolution stops the moment the entity lands on the lethal surface. A
+ * deflector that throws the entity onto it is a real hazard, and one the agent
+ * can only see coming if it has understood both rules at once.
  */
 function resolveEffects(
   level: Level,
@@ -43,13 +51,16 @@ function resolveEffects(
   d0: readonly [number, number],
   rules: Rules,
   path: EntityState[],
-): { state: EntityState; autoMoved: number; guardTripped: boolean } {
+): { state: EntityState; autoMoved: number; guardTripped: boolean; died: boolean } {
   let { x, y } = start;
   let dir = start.dir;
   let d = d0;
   let autoMoved = 0;
   let guardTripped = false;
   const seen = new Set<string>();
+  const lethal = lethalGlyph(rules);
+
+  if (level.grid[y][x] === lethal) return { state: { x, y, dir }, autoMoved, guardTripped, died: true };
 
   let i = 0;
   for (; i < MAX_EFFECT_ITERATIONS; i++) {
@@ -60,62 +71,38 @@ function resolveEffects(
     }
     seen.add(key);
 
-    const cell = level.grid[y][x];
+    if (level.grid[y][x] !== '/') break; // inert surface
 
-    if (cell === '~' && rules.slipperyEnabled) {
-      // Carried along the current direction of travel until standing on the
-      // first non-striped cell, or until the next cell is not passable.
-      let moved = 0;
-      while (level.grid[y][x] === '~') {
-        const nx = x + d[0];
-        const ny = y + d[1];
-        if (!passable(level, nx, ny)) break;
-        x = nx;
-        y = ny;
-        moved++;
-        path.push({ x, y, dir });
-      }
-      autoMoved += moved;
-      if (moved === 0) break; // wedged against an obstacle, still on stripes
-      continue; // re-examine whatever we landed on
-    }
-
-    if (cell === '/') {
-      // Deflector: travel turns 90 degrees clockwise and carries on one cell.
-      // With no heading to rotate, this is what "reorientation" has to mean —
-      // and it composes, since a deflected entity can be deflected again or
-      // handed straight onto a strip running the new way.
-      const nd = DELTA[turn(dirOf(d), 1)];
-      const nx = x + nd[0];
-      const ny = y + nd[1];
-      if (!passable(level, nx, ny)) break; // deflected into a wall: it rests here
-      d = nd;
-      dir = dirOf(nd);
-      x = nx;
-      y = ny;
-      autoMoved++;
-      path.push({ x, y, dir });
-      continue;
-    }
-
-    break; // inert surface
+    // Deflector: travel turns 90 degrees clockwise and carries on one cell.
+    const nd = DELTA[turn(dirOf(d), 1)];
+    const nx = x + nd[0];
+    const ny = y + nd[1];
+    if (!passable(level, nx, ny)) break; // deflected into a wall: it rests here
+    d = nd;
+    dir = dirOf(nd);
+    x = nx;
+    y = ny;
+    autoMoved++;
+    path.push({ x, y, dir });
+    if (level.grid[y][x] === lethal)
+      return { state: { x, y, dir }, autoMoved, guardTripped, died: true };
   }
   if (i >= MAX_EFFECT_ITERATIONS) guardTripped = true;
 
-  return { state: { x, y, dir }, autoMoved, guardTripped };
+  return { state: { x, y, dir }, autoMoved, guardTripped, died: false };
 }
 
 /**
  * Execute exactly one button press.
  *
  * Fixed order: apply the action -> test collision -> apply surface effects on
- * entry -> run automatic movement to completion -> test the success condition
- * against the FINAL state. One press is one action however far the entity is
- * subsequently carried, and a blocked attempt still consumes the action.
+ * entry -> run automatic movement to completion -> test the lethal and success
+ * conditions against the FINAL state. One press is one action however far the
+ * entity is subsequently carried, and a blocked attempt still consumes it.
  *
- * Surface effects fire on ENTRY only, i.e. only when the press actually changed
- * the entity's cell. A press that is blocked therefore triggers nothing, with
- * no special case needed.
+ * Death returns the entity to the room's start. The action is still spent and
+ * the room's budget keeps draining, so dying is genuinely costly rather than a
+ * free retry — that is what makes a careful probe worth paying for.
  */
 export function step(
   level: Level,
@@ -128,6 +115,7 @@ export function step(
   let blocked = false;
   let autoMoved = 0;
   let cycleGuardTripped = false;
+  let died = false;
 
   const d = DELTA[BUTTON_DIR[button]];
   const nx = x + d[0];
@@ -144,18 +132,16 @@ export function step(
     dir = r.state.dir;
     autoMoved = r.autoMoved;
     cycleGuardTripped = r.guardTripped;
+    died = r.died;
   } else {
     blocked = true;
   }
 
-  return {
-    state: { x, y, dir },
-    path,
-    blocked,
-    autoMoved,
-    cycleGuardTripped,
-    complete: level.grid[y][x] === 'O',
-  };
+  const complete = !died && level.grid[y][x] === goalGlyph(rules);
+  const state = died ? { ...level.start } : { x, y, dir };
+  if (died) path.push({ ...level.start });
+
+  return { state, path, blocked, autoMoved, cycleGuardTripped, died, complete };
 }
 
 export function parseGrid(rows: string[]): Level['grid'] {

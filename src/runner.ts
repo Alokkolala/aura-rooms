@@ -71,6 +71,7 @@ export interface RunState {
   levelsCompleted: number;
   levelOutcomes: Array<{ level: number; solved: boolean; actions: number }>;
   invalidReplies: number;
+  deaths: number;
   usage: { input: number; output: number; calls: number; ms: number };
   interventionAtStep: number | null;
   firstDiscriminatingStep: number | null;
@@ -125,6 +126,7 @@ export class Run {
       levelsCompleted: resume?.levelsCompleted ?? 0,
       levelOutcomes: resume ? [...resume.levelOutcomes] : [],
       invalidReplies: 0,
+      deaths: 0,
       usage: { input: 0, output: 0, calls: 0, ms: 0 },
       interventionAtStep: null,
       firstDiscriminatingStep: null,
@@ -225,7 +227,7 @@ export class Run {
     this.push({
       kind: 'rule-change',
       text: `Rule change applied before room ${INTERVENTION_BEFORE_LEVEL}`,
-      detail: 'striped surface no longer carries the entity',
+      detail: 'the two marked surfaces have traded meanings',
       researcherOnly: true,
     });
     this.log({
@@ -321,13 +323,17 @@ export class Run {
       before: pose(before),
       after: pose(r.state),
       level_complete: r.complete,
+      ...(r.died ? { died: true } : {}),
     };
+    if (r.died) s.deaths++;
     this.lastPrediction = meta.prediction;
 
     if (discriminating && s.interventionAtStep !== null && s.firstDiscriminatingStep === null)
       s.firstDiscriminatingStep = s.globalStep;
 
-    const moveText = r.blocked
+    const moveText = r.died
+      ? `stepped on ${this.level.grid[r.path[r.path.length - 2]?.y ?? 0][r.path[r.path.length - 2]?.x ?? 0]} and was returned to the start`
+      : r.blocked
       ? 'nothing moved'
       : `${before.x},${before.y} to ${r.state.x},${r.state.y}` +
         (r.autoMoved ? ` (carried ${r.autoMoved})` : '');
@@ -367,6 +373,7 @@ export class Run {
         entity_after: r.state,
         path: r.path,
         blocked: r.blocked,
+        died: r.died,
         auto_moved: r.autoMoved,
         discriminating_under_rule_change: discriminating,
         intervention_applied: s.interventionAtStep !== null,
@@ -555,6 +562,7 @@ export class Run {
       level_outcomes: s.levelOutcomes,
       total_actions: s.globalStep,
       invalid_replies: s.invalidReplies,
+      deaths: s.deaths,
       usage: s.usage,
       intervention_at_step: s.interventionAtStep,
       first_discriminating_step: s.firstDiscriminatingStep,

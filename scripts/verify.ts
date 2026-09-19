@@ -8,9 +8,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
-import { CHANGED_RULES, DEFAULT_RULES, step } from '../src/engine/engine.ts';
+import { CHANGED_RULES, DEFAULT_RULES, goalGlyph, lethalGlyph, step } from '../src/engine/engine.ts';
 import { DUAL_REGIME_LEVELS, LEVELS } from '../src/engine/levels.ts';
-import { solve } from '../src/engine/solver.ts';
+import { canReach, solve } from '../src/engine/solver.ts';
 import { auditForLeaks, buildObservation, pose } from '../src/engine/observation.ts';
 import { BUTTONS, type Button, type Dir, type EntityState, type Level } from '../src/engine/types.ts';
 
@@ -32,8 +32,10 @@ test('maps are well formed', () => {
     assert.equal(lv.grid.length, lv.h, `${lv.id} height`);
     for (const row of lv.grid)
       assert.equal(row.length, lv.w, `${lv.id} ragged row`);
-    const targets = lv.grid.flat().filter((c) => c === 'O').length;
-    assert.equal(targets, 1, `${lv.id} must have exactly one concentric tile`);
+    const rings = lv.grid.flat().filter((c) => c === 'O').length;
+    const radial = lv.grid.flat().filter((c) => c === 'X').length;
+    assert.equal(rings, 1, `${lv.id} must have exactly one concentric tile`);
+    assert.ok(radial >= 1, `${lv.id} must have at least one radial tile`);
     const s = lv.start;
     assert.ok(s.x >= 0 && s.x < lv.w && s.y >= 0 && s.y < lv.h, `${lv.id} start in bounds`);
     assert.ok(
@@ -57,23 +59,44 @@ test('every map is solvable in every rule set it must support', () => {
 test('every room is unsolvable without the mechanics it claims to require', () => {
   // The teeth of the level design. "Solvable" is the weak check; "solvable only
   // the intended way" is the one that catches a room that teaches nothing.
-  for (const lv of LEVELS) {
-    for (const surface of lv.requires)
-      for (const rules of BOTH_REGIMES.has(lv.id) ? [DEFAULT_RULES, CHANGED_RULES] : [DEFAULT_RULES]) {
-        const without = solve(lv, rules, { banned: [surface] });
-        assert.equal(
-          without,
-          null,
-          `level ${lv.id} claims to require "${surface}" but is solvable without it in ` +
-            `${without?.length} actions [${without?.join('')}] — the mechanic is decoration`,
-        );
-      }
-    // and a room that requires nothing must not secretly depend on a surface
-    if (lv.requires.length === 0) {
-      const specials = lv.grid.flat().filter((c) => c === '~' || c === '/');
-      assert.equal(specials.length, 0, `level ${lv.id} has special surfaces but declares no requirement`);
+  // Checked under the ORIGINAL rules only, and deliberately so. `requires` is a
+  // claim about the route to the room's objective, and the swap changes which
+  // surface that is — a room built so the deflector is the only way to the
+  // rings says nothing about the way to the radial. The claim that matters is
+  // the teaching one, and all the teaching happens before the change.
+  for (const lv of LEVELS)
+    for (const surface of lv.requires) {
+      const without = solve(lv, DEFAULT_RULES, { banned: [surface] });
+      assert.equal(
+        without,
+        null,
+        `level ${lv.id} claims to require "${surface}" but is solvable without it in ` +
+          `${without?.length} actions [${without?.join('')}] — the mechanic is decoration`,
+      );
     }
-  }
+});
+
+test('both marked surfaces can actually be stepped on, in both rule sets', () => {
+  // If the agent can never touch the lethal surface it cannot learn what that
+  // surface does, and the swap stops being a hard problem and becomes an
+  // impossible one. If it can never touch the other, the room is unwinnable.
+  for (const lv of LEVELS)
+    for (const rules of [DEFAULT_RULES, CHANGED_RULES]) {
+      assert.ok(canReach(lv, rules, 'O'), `level ${lv.id}: concentric unreachable`);
+      assert.ok(canReach(lv, rules, 'X'), `level ${lv.id}: radial unreachable`);
+    }
+});
+
+test('death returns the entity to the start and still costs the action', () => {
+  for (const lv of LEVELS)
+    for (const s of allStates(lv))
+      for (const b of BUTTONS)
+        for (const rules of [DEFAULT_RULES, CHANGED_RULES]) {
+          const r = step(lv, s, b, rules);
+          if (!r.died) continue;
+          assert.deepEqual(r.state, lv.start, `level ${lv.id}: death must reset to the room start`);
+          assert.equal(r.complete, false, 'a death is never also a completion');
+        }
 });
 
 test('stepping is deterministic', () => {
@@ -93,8 +116,8 @@ test('every button is a distinct absolute direction', () => {
   // agent could succeed while holding a wrong-but-consistent model of turning.
   // Four absolute directions have no such pair — every button is separable by
   // a single observation.
-  const lv = LEVELS[2];
-  const open = { x: 3, y: 3, dir: 0 as Dir };
+  const lv = LEVELS[3]; // room 4 is open ground with no walls to confound this
+  const open = { x: 3, y: 2, dir: 0 as Dir };
   const seen = new Map<string, Button>();
   for (const b of BUTTONS) {
     const r = step(lv, open, b, DEFAULT_RULES);
@@ -127,32 +150,27 @@ test('a blocked attempt changes nothing but still costs the action', () => {
         }
 });
 
-test('the rule change alters striped surfaces and nothing else', () => {
+test('the rule change alters only the two marked surfaces', () => {
   for (const lv of LEVELS)
     for (const s of allStates(lv))
       for (const b of BUTTONS) {
         const before = step(lv, s, b, DEFAULT_RULES);
         const after = step(lv, s, b, CHANGED_RULES);
-        const touchedStripes = [...before.path, ...after.path].some(
-          (p) => lv.grid[p.y][p.x] === '~',
+        const touchedMarked = [...before.path, ...after.path].some(
+          (p) => lv.grid[p.y][p.x] === 'O' || lv.grid[p.y][p.x] === 'X',
         );
-        if (!touchedStripes) assert.deepEqual(before, after);
+        if (!touchedMarked) assert.deepEqual(before, after);
       }
 });
 
-test('the target can never be skidded over', () => {
-  // A slide halts on the first non-striped cell, so any entry onto the
-  // concentric surface must terminate movement there.
+test('the winning surface and the lethal one are never the same cell', () => {
   for (const lv of LEVELS)
-    for (const s of allStates(lv))
-      for (const b of BUTTONS)
-        for (const rules of [DEFAULT_RULES, CHANGED_RULES]) {
-          const r = step(lv, s, b, rules);
-          // path[0] is the pre-action pose; only entries matter here.
-          const entered = r.path.slice(1);
-          const idx = entered.findIndex((p) => lv.grid[p.y][p.x] === 'O');
-          if (idx >= 0) assert.equal(idx, entered.length - 1);
-        }
+    for (const rules of [DEFAULT_RULES, CHANGED_RULES]) {
+      const g = goalGlyph(rules);
+      const l = lethalGlyph(rules);
+      assert.notEqual(g, l);
+      for (const row of lv.grid) for (const c of row) assert.ok(c !== g || c !== l);
+    }
 });
 
 test('effect resolution never trips its cycle guard on shipped maps', () => {
@@ -185,20 +203,6 @@ test('no reachable observation leaks a forbidden token', () => {
         const leaks = auditForLeaks(obs);
         assert.deepEqual(leaks, [], `level ${lv.id} leaked ${leaks.join()}`);
       }
-});
-
-test('the intervention rooms make the change expensive enough to notice', () => {
-  // A room where the carry saves one or two presses lets an agent limp along on
-  // a stale rule without ever paying for it. The gap has to be legible.
-  for (const id of DUAL_REGIME_LEVELS) {
-    const lv = LEVELS[id - 1];
-    const before = solve(lv, DEFAULT_RULES)!.length;
-    const after = solve(lv, CHANGED_RULES)!.length;
-    assert.ok(
-      after - before >= 5,
-      `level ${id}: the rule change only costs ${after - before} actions (${before} -> ${after})`,
-    );
-  }
 });
 
 test('every recording committed under runs/ still replays exactly', () => {

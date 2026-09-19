@@ -107,9 +107,9 @@ export function AgentPanel({ s }: { s: RunState }) {
 const TRUTH: Array<[string, string, string]> = [
   [PAL.floorA, 'tile_0 / tile_1', 'Two plain floors. Different look, identical behaviour.'],
   [PAL.solid, 'solid_tile', 'Blocks movement.'],
-  [PAL.stripedInk, 'striped_tile', 'Carries the entity along its travel direction until the first non-striped cell or an obstacle.'],
   [PAL.diagonalInk, 'diagonal_tile', 'Deflects travel 90° clockwise and carries it one more cell.'],
-  [PAL.ringA, 'concentric_tile', 'Ends the room when the entity finishes an action on it.'],
+  [PAL.ringA, 'concentric_tile', 'ORIGINAL: ends the room. AFTER THE CHANGE: kills.'],
+  [PAL.ringB, 'radial_tile', 'ORIGINAL: kills. AFTER THE CHANGE: ends the room.'],
 ];
 
 export function ResearcherPanel({
@@ -160,8 +160,8 @@ export function ResearcherPanel({
                   </td>
                   <td>
                     {desc}
-                    {name === 'striped_tile' && changed && (
-                      <strong style={{ color: 'var(--rose)' }}> — currently DISABLED (behaves as plain floor)</strong>
+                    {(name === 'concentric_tile' || name === 'radial_tile') && changed && (
+                      <strong style={{ color: 'var(--rose)' }}> — SWAPPED</strong>
                     )}
                   </td>
                 </tr>

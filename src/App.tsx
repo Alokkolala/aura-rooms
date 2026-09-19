@@ -85,7 +85,7 @@ export default function App() {
   // Reference path for the CURRENT rule set — researcher information only.
   const reference = useMemo(
     () => (s ? solve(level, s.rules)?.length ?? null : null),
-    [level, s?.rules.slipperyEnabled],
+    [level, s?.rules.swapped],
   );
 
   const started = (s?.globalStep ?? 0) > 0;
@@ -377,7 +377,7 @@ export default function App() {
                 <button className="btn" onClick={() => makeRun()}>
                   ↺ Restart, empty memory
                 </button>
-                <button className="btn warn" disabled={s.rules.slipperyEnabled === false} onClick={() => run!.forceRuleChange()}>
+                <button className="btn warn" disabled={s.rules.swapped} onClick={() => run!.forceRuleChange()}>
                   ⚡ Change a rule now
                 </button>
                 <button className="btn" onClick={() => void exportRun()}>

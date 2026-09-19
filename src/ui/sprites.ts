@@ -29,10 +29,6 @@ export const PAL = {
   solidTop: '#b6a392',
   solidDeep: '#63514a',
 
-  striped: '#d4e7f2',
-  stripedInk: '#8dc0dd',
-  stripedDeep: '#6fa3c4',
-
   diagonal: '#f2dcee',
   diagonalInk: '#c9a1d6',
   diagonalDeep: '#a97fb9',
@@ -133,19 +129,6 @@ function solidTile() {
   return cv;
 }
 
-function stripedTile() {
-  const { cv, ctx } = blank();
-  rect(ctx, 0, 0, TILE, TILE, PAL.striped);
-  // straight bands, no arrowheads and no implied direction
-  for (let x = 0; x < TILE; x++)
-    if (((x / 3) | 0) % 2 === 0) rect(ctx, x, 0, 1, TILE, PAL.stripedInk);
-  for (let i = 0; i < TILE; i++) {
-    px(ctx, i, TILE - 1, PAL.stripedDeep);
-    px(ctx, TILE - 1, i, PAL.stripedDeep);
-  }
-  return cv;
-}
-
 function diagonalTile() {
   const { cv, ctx } = blank();
   rect(ctx, 0, 0, TILE, TILE, PAL.diagonal);
@@ -160,6 +143,25 @@ function diagonalTile() {
     px(ctx, i, TILE - 1, PAL.diagonalDeep);
     px(ctx, TILE - 1, i, PAL.diagonalDeep);
   }
+  return cv;
+}
+
+function radialTile() {
+  const { cv, ctx } = blank();
+  rect(ctx, 0, 0, TILE, TILE, PAL.concentric);
+  // Spokes rather than rings — the same palette on purpose. Colour-coding one
+  // of these as dangerous would hand over the rule, and after the swap the
+  // coding would be pointing at the wrong tile anyway.
+  for (let y = 0; y < TILE; y++)
+    for (let x = 0; x < TILE; x++) {
+      const dx = x - 7.5;
+      const dy = y - 7.5;
+      const r = Math.max(Math.abs(dx), Math.abs(dy));
+      if (r < 2) { px(ctx, x, y, PAL.ringB); continue; }
+      const a = Math.atan2(dy, dx);
+      const spoke = Math.abs(Math.sin(a * 4)) > 0.72;
+      if (spoke && r < 7) px(ctx, x, y, r > 4.5 ? PAL.ringB : PAL.ringA);
+    }
   return cv;
 }
 
@@ -259,9 +261,9 @@ export function sprites(): SpriteSet {
       '.': floorTile(PAL.floorA, PAL.floorAHi, PAL.floorALo, 'grit'),
       ',': floorTile(PAL.floorB, PAL.floorBHi, PAL.floorBLo, 'diamond'),
       '#': solidTile(),
-      '~': stripedTile(),
       '/': diagonalTile(),
       O: concentricTile(),
+      X: radialTile(),
     },
     entity: [0, 1, 2, 3].map((d) => [entitySprite(d, 0), entitySprite(d, 1)]),
   };

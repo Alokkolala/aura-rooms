@@ -208,8 +208,8 @@ export function Replay() {
               )}
               <dl className="kv" style={{ marginTop: 10 }}>
                 <dt>Rule set</dt>
-                <dd style={{ color: cur.researcher.true_rules.slipperyEnabled ? 'var(--green)' : 'var(--rose)' }}>
-                  {cur.researcher.true_rules.slipperyEnabled ? 'original' : 'changed'}
+                <dd style={{ color: cur.researcher.true_rules.swapped ? 'var(--rose)' : 'var(--green)' }}>
+                  {cur.researcher.true_rules.swapped ? 'changed' : 'original'}
                 </dd>
                 <dt>Run config</dt>
                 <dd className="mono">{JSON.stringify((header as any)?.config ?? {})}</dd>

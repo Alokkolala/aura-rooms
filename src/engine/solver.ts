@@ -68,3 +68,35 @@ export function solve(level: Level, rules: Rules, options: SolveOptions = {}): B
   }
   return null;
 }
+
+/**
+ * Can the entity ever set foot on a cell of this glyph?
+ *
+ * Exact rather than a flood fill, because deflectors can carry the entity onto
+ * cells it could never walk to, and can equally carry it past cells a naive
+ * fill would call reachable. It matters for the lethal surface in particular:
+ * an agent that can never touch one cannot learn what it does, and would then
+ * meet the rule change with no way to recover from it.
+ */
+export function canReach(level: Level, rules: Rules, glyph: Cell): boolean {
+  const key = (x: number, y: number, d: number) => (y * level.w + x) * 4 + d;
+  const s0 = level.start;
+  if (level.grid[s0.y][s0.x] === glyph) return true;
+  const seen = new Set<number>([key(s0.x, s0.y, s0.dir)]);
+  let frontier = [s0];
+  while (frontier.length) {
+    const next: typeof frontier = [];
+    for (const s of frontier) {
+      for (const b of BUTTONS) {
+        const r = step(level, s, b, rules);
+        if (r.path.some((p) => level.grid[p.y][p.x] === glyph)) return true;
+        const k = key(r.state.x, r.state.y, r.state.dir);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        next.push(r.state);
+      }
+    }
+    frontier = next;
+  }
+  return false;
+}

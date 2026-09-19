@@ -22,11 +22,17 @@ export const BUTTON_DIR: Record<Button, Dir> = { A: 0, B: 1, C: 2, D: 3 };
  * Map cell glyphs.
  *   '.' ',' two visually distinct but functionally identical plain floors
  *   '#'     solid block
- *   '~'     striped surface
- *   '/'     diagonal surface
- *   'O'     concentric surface
+ *   '/'     diagonal surface — deflects travel 90 deg clockwise, one more cell
+ *   'O'     concentric surface  (rings)
+ *   'X'     radial surface      (spokes)
+ *
+ * O and X are deliberately drawn as siblings: both are centred, symmetrical
+ * figures that differ only in their pattern. One ends the room and the other
+ * kills; which is which is exactly what the rule change swaps. Making them look
+ * like a matched pair is what makes "perhaps those two traded places" a
+ * hypothesis an agent can actually reach.
  */
-export type Cell = '.' | ',' | '#' | '~' | '/' | 'O';
+export type Cell = '.' | ',' | '#' | '/' | 'O' | 'X';
 
 export interface Level {
   id: number;
@@ -50,11 +56,21 @@ export interface EntityState {
 
 /** The mutable part of world physics. This is what a hidden change edits. */
 export interface Rules {
-  /** striped surface carries the entity along its direction of travel */
-  slipperyEnabled: boolean;
+  /**
+   * false: concentric ends the room, radial is lethal.
+   * true:  they have swapped meanings.
+   *
+   * Nothing about either surface's appearance changes. This is a harsher change
+   * than the one it replaced: the old rule change cost the agent moves, this one
+   * costs it the room. Acting on stale knowledge is no longer expensive, it is
+   * fatal, which is the point.
+   */
+  swapped: boolean;
 }
 
 export interface StepResult {
+  /** landed on the lethal surface; the entity is returned to the room start */
+  died: boolean;
   state: EntityState;
   /** every intermediate pose, for animation. path[0] is the pre-action pose. */
   path: EntityState[];
@@ -84,10 +100,11 @@ export const DELTA: ReadonlyArray<readonly [number, number]> = [
  * v1: turn-relative buttons (turn left / forward / turn right / back), diagonal
  *     rotated the entity in place.
  * v2: four absolute directions, diagonal deflects travel, all eight rooms
- *     rebuilt. v1 recordings reference rooms that no longer exist and will not
- *     replay — see runs/archive-engine-v1/.
+ *     rebuilt. See runs/archive-engine-v1/.
+ * v3: striped surface removed entirely. The rule change is now a swap between
+ *     the goal surface and a lethal one. See runs/archive-engine-v2/.
  */
-export const ENGINE_VERSION = 2;
+export const ENGINE_VERSION = 3;
 
 /** Hard cap on automatic effect resolution so the engine can never hang. */
 export const MAX_EFFECT_ITERATIONS = 64;
