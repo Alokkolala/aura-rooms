@@ -71,6 +71,16 @@ export interface Rules {
 export interface StepResult {
   /** landed on the lethal surface; the entity is returned to the room start */
   died: boolean;
+  /**
+   * The cell the entity was standing on when it died.
+   *
+   * Reported because it is plainly visible — the death happens THERE, in front
+   * of you. Without it the agent sees only "I was here, now I am back at the
+   * start", which makes the lethal surface impossible to identify and so makes
+   * the whole experiment unwinnable. Found the hard way: an agent concluded it
+   * died from "returning to the starting position".
+   */
+  diedAt: { x: number; y: number } | null;
   state: EntityState;
   /** every intermediate pose, for animation. path[0] is the pre-action pose. */
   path: EntityState[];

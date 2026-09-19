@@ -116,6 +116,7 @@ export function step(
   let autoMoved = 0;
   let cycleGuardTripped = false;
   let died = false;
+  let diedAt: { x: number; y: number } | null = null;
 
   const d = DELTA[BUTTON_DIR[button]];
   const nx = x + d[0];
@@ -133,6 +134,7 @@ export function step(
     autoMoved = r.autoMoved;
     cycleGuardTripped = r.guardTripped;
     died = r.died;
+    if (died) diedAt = { x: r.state.x, y: r.state.y };
   } else {
     blocked = true;
   }
@@ -141,7 +143,7 @@ export function step(
   const state = died ? { ...level.start } : { x, y, dir };
   if (died) path.push({ ...level.start });
 
-  return { state, path, blocked, autoMoved, cycleGuardTripped, died, complete };
+  return { state, path, blocked, autoMoved, cycleGuardTripped, died, diedAt, complete };
 }
 
 export function parseGrid(rows: string[]): Level['grid'] {

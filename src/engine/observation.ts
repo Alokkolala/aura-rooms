@@ -35,12 +35,15 @@ export interface LastAction {
   /**
    * The entity was returned to where the room started.
    *
-   * Reported because it is plainly visible — a player would watch it happen.
-   * What is NOT reported is why: no surface is named, no cause is given, and
-   * nothing says it will happen again. Working out which surface did it, and
-   * whether that is still true later, is the agent's job.
+   * Reported because it is plainly visible — a player would watch it happen,
+   * and would see WHERE it happened, which is why `died_at` is here too. What
+   * is not reported is why: no surface is named, no cause is given, nothing
+   * says it will happen again. Working out which surface did it, and whether
+   * that is still true later, is the agent's job.
    */
   died?: boolean;
+  /** the cell it was standing on at the moment it died */
+  died_at?: { x: number; y: number };
 }
 
 /**

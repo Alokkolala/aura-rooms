@@ -323,7 +323,7 @@ export class Run {
       before: pose(before),
       after: pose(r.state),
       level_complete: r.complete,
-      ...(r.died ? { died: true } : {}),
+      ...(r.died ? { died: true, died_at: r.diedAt ?? undefined } : {}),
     };
     if (r.died) s.deaths++;
     this.lastPrediction = meta.prediction;

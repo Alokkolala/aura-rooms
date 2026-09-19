@@ -96,6 +96,12 @@ test('death returns the entity to the start and still costs the action', () => {
           if (!r.died) continue;
           assert.deepEqual(r.state, lv.start, `level ${lv.id}: death must reset to the room start`);
           assert.equal(r.complete, false, 'a death is never also a completion');
+          assert.ok(r.diedAt, 'a death must report where it happened');
+          assert.equal(
+            lv.grid[r.diedAt!.y][r.diedAt!.x],
+            lethalGlyph(rules),
+            'the reported death cell must be the lethal surface it landed on',
+          );
         }
 });
 
