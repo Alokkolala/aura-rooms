@@ -52,12 +52,22 @@ tells the agent.
 |---|---|
 | Two plain floor patterns | Nothing. They look different and behave identically — a deliberate red herring |
 | Solid block | Blocks movement |
-| Striped floor | **Carries you** along the way you were moving until you hit a non-striped tile or an obstacle |
 | Diagonal floor | **Deflects** your movement 90° clockwise and carries you one more cell |
-| Concentric rings | Ends the room if you finish a move on it |
+| Concentric rings | **Ends the room** if you finish a move on it |
+| Radial spokes | **Kills you** and sends you back to the room's start |
 
-**The hidden change:** the striped floor stops carrying you. It looks exactly the
-same. It just becomes ordinary floor.
+The last two are drawn as a matched pair — same palette, same size, both centred
+and symmetrical. Nothing about how they look says which is which.
+
+**The hidden change: the two swap meanings.** The rings become lethal, the spokes
+become the exit. Neither changes appearance. An agent carrying the old rule walks
+onto what it believes is the way out and dies.
+
+That change is deliberately harsher than the one it replaced. An earlier version
+switched off a "sliding floor" mechanic, which cost the agent *moves* — it still
+won, just slower. Costing it the room instead makes stale knowledge fatal rather
+than merely expensive, and gives a careful agent a reason to probe instead of
+striding onto the thing it is sure about.
 
 That's the whole experiment. Everything else is scaffolding to watch it cleanly.
 
@@ -219,6 +229,42 @@ filing artifact that has nothing to do with belief revision at all.
 
 ---
 
+## 3b. What happened when the world got lethal
+
+The rebuilt world was run cold, empty memory, every press model-chosen. It got
+**14 presses into room 1 and did not solve it.** Three deaths. That failure is
+the most useful thing in this report.
+
+It learned the controls well, and — unlike the earlier run — it **abandoned a
+wrong theory instead of defending it**. It briefly believed the buttons were
+turn-relative, demoted its own claim to *suspect*, then rewrote all four
+correctly. It even logged an error against its own bookkeeping rather than
+blaming the world.
+
+Then it lost the room to the exact failure this project studies. Having
+established that the spoked tile killed it, it would not accept the simple rule.
+Three deaths on the same cell, each followed by a narrower condition rather than
+a retraction:
+
+| after death | what it wrote |
+|---|---|
+| 1st | "radial tile at (2,2) kills entity" — correct |
+| 2nd | "kills **when the marker is up**" — narrowed; tested another marker, died |
+| 3rd | "safe if the **marker matches the movement direction**" — tested it, died |
+| — | *"previous hypothesis of marker-match safety was false... appears unconditionally deadly"* |
+
+Right answer on the fourth attempt. Then it spent its remaining presses testing a
+*fourth* variant instead of finishing, and ran out of budget.
+
+**This is the same behaviour as the earlier run, on a completely different
+mechanic.** Before, it defended a turn-relative button model with "B rotates
+until it finds an open path". Here it defended conditional lethality with "safe
+if the marker matches". Two rebuilds of the world, two unrelated rule families,
+the same shape every time: **keep the root claim, bolt conditions onto it.**
+
+That makes it the most replicable thing the project has found, and it points at
+the model rather than the world.
+
 ## 4. Things that broke, including my own mistakes
 
 This is the honest part. Most of what I learned came from things being wrong.
@@ -268,6 +314,16 @@ check them. Now: every run records the engine version, the viewer reports an
 incompatible recording instead of dying, incompatible logs live in
 `runs/archive-engine-v1/`, and a test asserts that everything still in `runs/`
 replays exactly. That test found 58 further stale logs on the first run.
+
+**The same withholding bug, a third time.** On the rebuilt world the agent died
+and concluded *"entity dies when returning to the starting position"*. It never
+connected the death to the tile — it couldn't, because after a death the reported
+"after" position is the respawn point, so the lethal cell appeared nowhere it
+could see. Third instance of the same class, after the winning press and the
+agent's own prediction. Every one was invisible to the test suite and only
+surfaced when a real agent reasoned from what it was actually handed. Tests check
+that code does what it says; they cannot check that what it says is enough to
+reason from.
 
 **And an error I made during the live run itself.** At one step I typed part of
 the prompt by hand instead of copying the harness output, and got one field
@@ -321,9 +377,18 @@ the floor rules, because a floor rule is what the experiment actually changes.
 
 ## 7. What to do next, in order
 
+0. **Point it at a model and let it run.** `npm run campaign` does the whole
+   campaign headlessly in one command. Driving it by hand through one sealed
+   subagent per press — how every run so far was done — costs roughly twenty
+   times more than the work it does, because each press rebuilds an entire agent
+   harness to answer one question about one grid. Fine for a five-step probe,
+   hopeless for a campaign. A local model on an OpenAI-compatible endpoint costs
+   nothing and needs no key.
 1. **One full run through all eight rooms from empty memory**, reaching the
    change through genuinely earned knowledge. Everything else is guessing until
-   this exists.
+   this exists. Give it 25-30 presses per room, not 15 — this agent spends
+   heavily on hypothesis tests and the earlier budget made the failure about the
+   allowance rather than the reasoning.
 2. **The same run with flat memory.** Then, for the first time, there's a
    comparison.
 3. **Repeat the prediction-echo result properly.** It's currently the most

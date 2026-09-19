@@ -537,3 +537,175 @@ instead of crashing.
 
 **Still the same gap.** None of this has been run against a model. It makes the
 next run measurable; it does not substitute for it.
+
+## 2026-09-19 — E12. Engine v3: the rule change becomes fatal
+
+The striped surface is gone. On the user's proposal the rule change is no longer
+"the carry switches off" but "the goal surface and a lethal surface trade
+meanings". Both are drawn as siblings — concentric rings and radial spokes, same
+palette — and neither changes appearance when the swap happens.
+
+**Why this is a better change than the one it replaced.** The old change cost the
+agent moves: it still reached the target, just slower. This one costs it the
+room. Acting on stale knowledge stops being expensive and becomes fatal, which
+also creates a dynamic the old design had no room for — an agent that suspects a
+change should probe rather than walk confidently onto what it "knows" is the
+goal.
+
+`[assumption]` **It also changes what is being measured, and that is not a free
+upgrade.** Detection becomes trivial: you step on the goal and die, which is
+unmissable. The weight of the experiment shifts from noticing onto recovering.
+Given E7's finding that detection is largely a harness artefact anyway, that is
+arguably an improvement, but it should be stated rather than glossed.
+
+**Temptation is inherent, not contrived.** The agent sees two matched symmetrical
+figures and cannot know which one it wants. It needs no artificial shortcut to be
+lured onto the lethal one — only for the lethal one to be nearer, which is how
+the early rooms are laid out. Chosen over forcing a death because the user asked
+for temptation rather than coercion; the risk that a cautious agent reaches the
+intervention never having touched one is real, deliberate, and part of what the
+design is testing.
+
+**Two design faults the checks caught, both fatal to the experiment.** Rooms 5
+and 7 each had the radial surface reachable *only by walking over the rings*.
+Under the original rules that is merely a detour; after the swap the winning
+surface sits behind a lethal one and the room is unwinnable. Neither was visible
+by playing — both came out of a new check that both marked surfaces must be
+reachable under both rule sets.
+
+Room 7 is now the sharpest room in the campaign: **11 presses under the original
+rules against 4 after the swap, by opposite routes.** The short right-hand column
+is lethal before the change and correct after. An agent carrying the old rule
+walks onto the rings and dies; the other surface is one cell away, so the room
+still measures recovery rather than luck.
+
+`[derived]` `requires` is now checked under the ORIGINAL rules only, and the
+reason is in the code: the swap changes which surface the room is aiming at, so a
+claim about the route to the rings says nothing about the route to the radial.
+All the teaching happens before the change, so the teaching claim is the one
+worth enforcing.
+
+## 2026-09-19 — E13. The same bug, a third time
+
+First run on v3. The agent stepped onto the radial surface on step 2 — exactly as
+the layout intended — died, and wrote:
+
+> `no_return_rule`: "Entity dies when returning to starting position after moving
+> away."
+
+It never connected the death to the surface. **It could not.** The observation
+carried `before` and `after` poses, and after a death the `after` is the respawn
+point, so the lethal cell appeared nowhere in anything the agent could see.
+
+This is the third time the instrument has withheld the one observation the agent
+needed, after the winning press (E9) and the agent's own prediction (E7). The
+pattern is worth naming: **every one of these was invisible to the test suite and
+only appeared when a real agent reasoned from what it was actually handed.** Unit
+tests check that the code does what it says. They cannot check that what it says
+is enough to reason from.
+
+Consequence had it shipped: the lethal surface would have been permanently
+unidentifiable, so recovery from the swap would have been impossible rather than
+hard, and every press of the campaign would have been wasted.
+
+Fixed — `last_action.died_at` reports the cell, with a check asserting the
+reported cell really is the lethal glyph under the rules in force. After the fix
+the agent wrote, on step 2 and unprompted:
+
+> `radial_deadly`: "Radial tile at (2,2) kills entity; entity died when moving
+> toward it." — **confirmed**
+
+That is the prerequisite for the whole swap experiment, earned rather than
+seeded, and it now exists.
+
+## 2026-09-19 — E14. The epicycle behaviour replicates across engine versions
+
+`[measured]` Cold start, empty memory, structured store, hidden condition, budget
+15, sealed Haiku, every press model-chosen. 14 presses, 3 deaths, **room 1 not
+solved**. Accuracy 55% (6/11 committed, 3 declined). Log:
+`runs/v3run-*.jsonl`.
+
+It learned the button set correctly and quickly — and notably, it **abandoned a
+wrong frame rather than defending it**, which the v2 run never did:
+
+```
+step 3   btn_a_moves_opposite   -> confirmed   (wrong: read the respawn as a move)
+step 4   btn_b_clockwise        -> confirmed   (wrong: turn-relative)
+step 6   btn_a_unclear          -> suspect     (demoted its own claim)
+step 7   btn_a_move_up          -> confirmed   correct
+         btn_b_right_marker     -> confirmed   correct
+         btn_d_left_marker      -> confirmed   correct
+```
+
+It even logged `step7_error` against its own bookkeeping rather than blaming the
+world.
+
+**Then it lost the room to exactly the failure mode this project is about.**
+Having established that the radial surface killed it, it would not accept the
+simple rule. Three deaths on the same cell, each followed by a narrower
+condition rather than a retraction:
+
+| after death | what it wrote |
+|---|---|
+| 1st | "radial_tile at (2,2) kills entity" — correct |
+| 2nd | "kills **when marker is up**" — narrowed, then tested marker=right, died |
+| 3rd | "safe if **marker matches movement direction**" — tested marker=up moving up, died |
+| — | "previous hypothesis of marker-match safety was false... appears unconditionally deadly" |
+
+It reached the right answer on the fourth attempt, then spent its remaining
+presses testing a *fourth* variant instead of finishing the room, and ran out of
+budget.
+
+`[measured, n=1 per engine]` **This is the same behaviour as the v2 run, on a
+completely different mechanic.** On v2 it defended a turn-relative button model
+with "B rotates until it finds an open path"; on v3 it defended a conditional
+lethality model with "safe if the marker matches". Two engine versions, two rule
+families, same shape: *preserve the root claim, add conditions to it*. That makes
+it the most replicable observation the project has produced, and it suggests the
+behaviour is a property of the model rather than of this world.
+
+`[derived]` It also repeated the v2 over-generalisation verbatim —
+`btn_c_inert: "Button C does nothing"` — confirmed from a single press blocked by
+the grid edge. Twice, across two engine versions.
+
+**Budget note.** 15 presses per room is too tight for an agent that spends this
+heavily on hypothesis tests. Room 1's reference path is 6. Future runs should use
+25-30 and let the failure be about reasoning rather than about the allowance.
+
+## 2026-09-19 — E15. Hand-driving the protocol does not scale, and the fix
+
+`[measured]` Driving the loop one sealed subagent per press costs roughly **20x
+more than the work it does.** Each spawn burns about 50,000 tokens rebuilding an
+entire agent harness before it reads the ~2,500-token prompt it is there to
+answer. The 14-press run above cost on the order of 750,000 tokens to produce
+about 40,000 tokens of actual reasoning.
+
+That trade was right for a five-step probe, where the alternative was no evidence
+at all. It is wrong for a campaign, and it was the user who spotted it.
+
+`scripts/campaign.ts` runs a whole campaign headlessly, sending exactly the
+prompt and nothing else. It deliberately imports the same prompt, observation,
+validation, memory and metrics modules the browser runner uses, so a headless run
+and a watched run are the same experiment and produce the same replayable JSONL.
+It refuses with a clear message when no model is reachable rather than
+pretending.
+
+```
+ANTHROPIC_API_KEY=... npm run campaign
+AURA_ENDPOINT=http://localhost:11434/v1 AURA_API_KEY=x AURA_MODEL=... npm run campaign
+```
+
+`[assumption]` The local-endpoint route costs nothing and needs no key, and is
+the fastest way to get the first complete campaign. A weaker local model will
+play worse, but "does the pipeline survive eight rooms end to end" does not need
+a strong one, and that question has still never been answered.
+
+### Standing gaps, unchanged by any of this
+
+- **No flat-memory run exists.** Every model trajectory across all three engine
+  versions used structured memory. The project's headline question remains
+  untested.
+- No run has reached the intervention from self-accumulated experience. On v3 the
+  furthest any agent has got is room 1, unsolved.
+- The E7 echo finding was measured on v1 and has never been reproduced since two
+  engine rebuilds.

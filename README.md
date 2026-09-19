@@ -15,6 +15,18 @@ a separate researcher panel shows the true rules the agent cannot see.
 
 ---
 
+## The world, in one paragraph
+
+Four buttons, four absolute directions, nothing labelled. Two plain floors that
+look different and behave identically. Solid blocks. A diagonal surface that
+deflects travel 90° clockwise. And two centred, symmetrical figures drawn as a
+matched pair — **concentric rings** and **radial spokes**. One ends the room. The
+other kills you and sends you back to the room's start, with the action spent and
+the budget still draining.
+
+**The hidden change swaps which is which.** Neither changes appearance. An agent
+carrying the old rule walks onto what it believes is the exit and dies.
+
 ## Run it
 
 ```bash
@@ -33,6 +45,17 @@ log.
 ```bash
 ANTHROPIC_API_KEY=sk-... npm run dev
 ```
+
+To run a whole campaign headlessly, with no browser and no supervision:
+
+```bash
+ANTHROPIC_API_KEY=sk-... npm run campaign
+```
+
+It sends exactly the prompt and nothing else, reusing the same modules the
+browser runner uses, so a headless run and a watched run are the same experiment
+and produce the same replayable log. Options: `--strategy`, `--condition`,
+`--budget`, `--rooms`, `--tag`.
 
 Optional: `AURA_MODEL` (default `claude-opus-5`), `AURA_EFFORT` (`low`/`medium`/
 `high`, default `medium`). For any OpenAI-compatible endpoint instead, set
@@ -93,6 +116,7 @@ wrong — deciding that needs someone to read the claim, so it is left to you.
 | LLM agent | yes | The real thing: start, pause, single-step, restart empty |
 | Replay | no | Step through a recorded run; no model calls |
 | Protocols | yes | Named experiments from `src/experiment.ts`, each stating its question, what would answer it, and its cost before anything is spent |
+| `npm run campaign` | yes | Runs a whole campaign headlessly and writes the same replayable log |
 | `scripts/smoke.ts` | no | Drive the exact protocol by hand, for a model you cannot reach over HTTP |
 
 Strategy, condition, budget and seed lock once a run starts — changing them
