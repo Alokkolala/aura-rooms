@@ -1,0 +1,433 @@
+{
+  "run_id": "codex-v4-2026-09-19T1208",
+  "engine_version": 4,
+  "provider": "codex",
+  "model": "gpt-5.6-luna",
+  "endpoint": "",
+  "config": {
+    "strategy": "structured",
+    "condition": "hidden",
+    "budget": 25
+  },
+  "resumed_after_steps": [
+    49
+  ],
+  "outcomes": [
+    {
+      "level": 1,
+      "solved": true,
+      "actions": 6,
+      "deaths": 0
+    },
+    {
+      "level": 2,
+      "solved": true,
+      "actions": 4,
+      "deaths": 0
+    },
+    {
+      "level": 3,
+      "solved": true,
+      "actions": 20,
+      "deaths": 5
+    },
+    {
+      "level": 4,
+      "solved": true,
+      "actions": 6,
+      "deaths": 0
+    },
+    {
+      "level": 5,
+      "solved": true,
+      "actions": 17,
+      "deaths": 4
+    },
+    {
+      "level": 6,
+      "solved": false,
+      "actions": 25,
+      "deaths": 0
+    },
+    {
+      "level": 7,
+      "solved": true,
+      "actions": 16,
+      "deaths": 1
+    },
+    {
+      "level": 8,
+      "solved": true,
+      "actions": 20,
+      "deaths": 0
+    }
+  ],
+  "metrics": {
+    "totalActions": 114,
+    "roomsSolved": 7,
+    "deaths": 10,
+    "deathsAfterChange": 1,
+    "fieldsCommitted": 445,
+    "fieldsCorrect": 412,
+    "accuracy": 0.9258426966292135,
+    "predictionViolations": 18,
+    "predictionsDeclined": 2,
+    "interventionAtStep": 79,
+    "firstEvidenceStep": 90,
+    "firstRevisedPredictionStep": 90,
+    "flaggedAtStep": 91,
+    "detectionDelay": 0,
+    "detectionDelayFromChange": 11,
+    "ruleRelevantViolations": 3,
+    "staleRulePredictions": 3,
+    "staleRuleActions": 1,
+    "staleRuleDeaths": 1,
+    "postChangeCompletionStep": 94,
+    "recovered": true,
+    "recoveredAtStep": 94,
+    "transferStep": 114,
+    "transferSucceeded": true,
+    "collateralAccuracyBefore": 0.9809160305343512,
+    "collateralAccuracyAfter": 0.9555555555555556,
+    "collateralDrop": 0.025360474978795566,
+    "statusChanges": [
+      {
+        "step": 1,
+        "id": "start",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 1,
+        "id": "btn_a",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 2,
+        "id": "btn_a",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 2,
+        "id": "btn_b",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 3,
+        "id": "btn_b",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 3,
+        "id": "btn_c",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 4,
+        "id": "btn_c",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 5,
+        "id": "goal_path",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 7,
+        "id": "room2",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 7,
+        "id": "room2_controls",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 7,
+        "id": "room2_path",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 8,
+        "id": "btn_d",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 10,
+        "id": "room2_controls",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 10,
+        "id": "btn_d",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 11,
+        "id": "room2_path",
+        "from": "hypothesis",
+        "to": "superseded"
+      },
+      {
+        "step": 11,
+        "id": "room3",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 12,
+        "id": "room3_path",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 13,
+        "id": "btn_a",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 13,
+        "id": "room3_path",
+        "from": "hypothesis",
+        "to": "superseded"
+      },
+      {
+        "step": 13,
+        "id": "room3_d",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 14,
+        "id": "room3_path",
+        "from": "superseded",
+        "to": "hypothesis"
+      },
+      {
+        "step": 14,
+        "id": "room3_d",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 15,
+        "id": "btn_a",
+        "from": "suspect",
+        "to": "confirmed"
+      },
+      {
+        "step": 17,
+        "id": "btn_b",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 19,
+        "id": "btn_a",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 21,
+        "id": "btn_a",
+        "from": "suspect",
+        "to": "confirmed"
+      },
+      {
+        "step": 23,
+        "id": "btn_b",
+        "from": "suspect",
+        "to": "confirmed"
+      },
+      {
+        "step": 25,
+        "id": "btn_a",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 25,
+        "id": "btn_b",
+        "from": "confirmed",
+        "to": "hypothesis"
+      },
+      {
+        "step": 27,
+        "id": "btn_a",
+        "from": "suspect",
+        "to": "confirmed"
+      },
+      {
+        "step": 30,
+        "id": "btn_b",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 31,
+        "id": "room4",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 31,
+        "id": "room4_controls",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 34,
+        "id": "room4_controls",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 36,
+        "id": "room4_goal",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 37,
+        "id": "room5",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 39,
+        "id": "btn_a",
+        "from": "confirmed",
+        "to": "suspect"
+      },
+      {
+        "step": 45,
+        "id": "radial5",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 54,
+        "id": "room6_route",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 58,
+        "id": "room6_route",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 74,
+        "id": "room6_descent",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 76,
+        "id": "room6_down",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 77,
+        "id": "room6_descent",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 77,
+        "id": "room6_down",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 79,
+        "id": "room7",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 79,
+        "id": "room7_radial",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 90,
+        "id": "room7",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 95,
+        "id": "room7_radial",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 95,
+        "id": "room8_route",
+        "from": null,
+        "to": "hypothesis"
+      },
+      {
+        "step": 103,
+        "id": "room8_route",
+        "from": "hypothesis",
+        "to": "confirmed"
+      },
+      {
+        "step": 107,
+        "id": "room8_block",
+        "from": null,
+        "to": "confirmed"
+      },
+      {
+        "step": 114,
+        "id": "room8_radial",
+        "from": null,
+        "to": "hypothesis"
+      }
+    ],
+    "demotedAfterChange": [],
+    "hazardContacts": [
+      {
+        "level": 3,
+        "presses": 5,
+        "deaths": 5
+      },
+      {
+        "level": 5,
+        "presses": 4,
+        "deaths": 4
+      },
+      {
+        "level": 7,
+        "presses": 1,
+        "deaths": 1
+      }
+    ]
+  },
+  "invalid_replies": 0,
+  "tool_use_alarms": 1,
+  "usage": {
+    "input": 1511078,
+    "output": 100097,
+    "calls": 114
+  }
+}

@@ -914,3 +914,252 @@ New tests, 66 in total (was 41):
   careless one relying on it. Given that E14's central finding is *about* how the
   agent spends probes, this is the weakest of the new metrics.
 - Still one rule family, one change, one direction. No A→B→A return.
+
+---
+
+## 2026-09-19 — E17. The first v4 run: recovered by the criterion, unrevised by the transcript
+
+`[measured]` The first automated run on this engine, and the first run in the
+project's history to reach the rule change on self-earned knowledge. Log:
+`runs/codex-v4-2026-09-19T1208.jsonl` (committed, replays exactly), summary in
+`runs/codex-v4-2026-09-19T1208.summary.json`, console trace in
+`runs/codex-v4-console.log`.
+
+Subject: `codex exec · gpt-5.6-luna`, sealed (see README). Structured memory,
+**hidden** condition, 25 presses per room, every press model-chosen, nothing
+seeded. 114 presses, 114 model calls, 1.61M tokens, of which roughly 11,700 per
+call is codex's own scaffolding. **0 malformed replies. 0 tool uses.** One
+`seal_alarm` at step 50 — a codex `error` item in the event stream, not a
+command or file read; `leaky: false`; the reply itself was a valid press. The
+seal held.
+
+**The run was interrupted and resumed.** Step 50's call exceeded the 300 s
+timeout (median call 24 s, p90 33 s, worst 103 s — an outlier hang, not the
+prompt growing) and the runner treated a provider error as fatal. Nothing
+carries between presses except the memory store and the last observation, both
+of which are in the log, so `campaign.ts` gained `--resume`: it rebuilds the
+state from the log and asks the next press from exactly where the last one
+stopped. That this is exact is now a test — hydrating from any prefix of any log
+in `runs/` reproduces the next step's `prompt_user` byte for byte, 86 prefixes
+across five logs including the browser runner's. The seam is at step 49, marked
+by a `run_resume` record; the first press after it continued the agent's stated
+plan and was correct. A press is now also retried after a provider error, with
+every attempt logged.
+
+### Rooms
+
+| room | presses | reference | deaths | |
+|---|---|---|---|---|
+| 1 controls | 6 | 4 | 0 | two spent telling buttons apart |
+| 2 the same shape | 4 | 4 | 0 | optimal — and the winning press was a MISS |
+| 3 the straight line | 20 | 6 | 5 | all five on the same cell |
+| 4 two doors | 6 | 5 | 0 | chose the rings, correctly, first time |
+| 5 reorientation | 17 | 9 | 4 | all four on the same cell, identical press pairs |
+| 6 assembly | **failed** (25) | 19 | 0 | 25/25 predictions right, never approached the rings |
+| — swap — | | | | |
+| 7 the same two | 16 | 4 (11 before) | 1 | the stale-rule death, then the other tile |
+| 8 transfer | 20 | 10 | 0 | never touched the rings |
+
+Accuracy 93% (412/445 committed fields; 2 presses committed nothing).
+
+### The pre-registered numbers
+
+```
+change applied      entering room 7 (first press under new rules: 79)
+first evidence      90      the rings, walked onto by the long route
+R1 revised          90      delay after evidence 0, after change 11
+flagged             91
+R2 room after       94
+RECOVERED           step 94
+transfer            step 114
+stale rule          3 predictions, 1 action (fatal)
+collateral          2.5pp accuracy drop on fields the change did not touch
+demoted after       none
+```
+
+By the criterion fixed in E16, this run **recovered** and **transferred**. The
+rest of this entry is about why those two words are doing more work than the
+transcript supports, and what the instrument should do about it.
+
+### Finding 1 — every death was blamed on a button
+
+`[measured]` Ten deaths. Ten self-reported contradictions on the following
+press. **Every one of them names a button as the subject, and none names a
+tile.** The first three, verbatim:
+
+> step 13: "Button A moved the entity from (2,3) to (2,4), contradicting the
+> earlier assumption that A always moves upward."
+> step 17: "Button B did not move from (1,2) to (2,2); it relocated the entity
+> to (2,4) in the same room."
+> step 19: "Button A moved the entity from (2,3) to (2,4), contradicting the
+> assumption that A always moves upward in room 3."
+
+The observation on each of those presses carried `came_from: (2,2)` — the
+lethal cell — and an `after` two rows away from it, which is not adjacent. The
+information E13 was rebuilt to provide was on every screen and was used on none.
+
+What the memory did with it is the measurable part. The final store's
+`contradicted_by` lists, classified against the researcher record of what each
+press actually was:
+
+| entry | contradicted_by | what those presses were |
+|---|---|---|
+| `btn_a` (**suspect**) | 13, 19, 25, 32, 39, 41, 43 | 6 deaths, 1 blocked press |
+| `btn_b` (confirmed) | 17, 23, 85, 91, 113 | 3 deaths, 2 blocked presses |
+
+Nine of twelve contradictions filed against buttons were deaths. The button
+beliefs were **correct throughout** — the run's 93% accuracy is mostly the
+button model working — and the agent spent the campaign demoting and
+conditioning them: `btn_a` ends the run `suspect`, "usually moves upward when
+the path is open, but can trigger nonlocal movement". The first belief about
+the lethal tile at all (`radial5`, "relocates the entity to the room start") is
+written at step 45, after the ninth death, and scoped to one room.
+
+`[derived]` This is a different failure from E14, and the instrument now
+separates them. E14's Haiku formed the tile rule after the first death and then
+defended it with conditions ("kills when the marker is up"). This subject never
+formed one; the epicycles went onto the correct belief instead. Same outer
+shape — preserve the root, add conditions — but the root that gets preserved is
+whichever belief the agent has, and here the only belief it had was about
+buttons. **Misattribution of an anomaly to the wrong rule is not measured by
+anything in `computeMetrics`.** `collateralDrop` looks only at accuracy after
+the change, and this damage happened before it. A measure is available without
+a judge: for each belief whose id names a button, the share of its
+`contradicted_by` presses that were deaths. Call it the blame ledger. Proposed
+for the next run, below.
+
+### Finding 2 — a solved room is not a learned rule
+
+`[measured]` Room 2 was solved optimally and the winning press was a MISS: it
+walked onto the rings predicting `room_changed: false`. Room 5 was the first
+room in which it predicted a room ending before it happened. Room 8's winning
+press committed `room_changed: null`. Across 114 presses it committed to a room
+ending exactly once. The agent reaches exits; it does not predict them.
+
+### Finding 3 — the deflector was never learned, and room 6 fell to planning
+
+`[measured]` The diagonal carried the entity once in the whole run (step 51,
+room 5, A from (1,2) landing at (2,1)). The contradiction was correct — "landed
+at (2,1), not the predicted (1,1)" — and the memory recorded nothing. The word
+"diagonal" first appears in memory at step 105, as a landmark. Room 6 was then
+failed with **25 correct predictions out of 25 and no deaths**: ten presses
+oscillating `D B D B` between (3,0) and (5,0) on the top corridor, every one
+predicted right. A perfect local model and no route. That is a planning
+failure, and it says the prediction accuracy number cannot see it.
+
+### Finding 4 — the change
+
+`[measured]` Room 7 went as designed. It took the long route — the pre-change
+reference `DDDAAABBBBB` plus one blocked press — and at step 90 pressed B onto
+the rings and was sent back. `touched_original_objective: true`,
+`staleRuleDeaths: 1`. Then:
+
+- step 91 contradiction: "Button B from (5,1) reset the entity to the room start
+  (4,4), rather than moving to (6,1)." The button again. `btn_b` gains the
+  condition "may reset the entity from the concentric route".
+- `room7` — "…right along y=1 toward the concentric tile at (6,1)" — stays
+  **confirmed**. The route that killed it remains the plan of record.
+- `room7_radial` is written as "likely with a special relocation effect": the
+  **old** radial rule, projected onto the new room.
+- Steps 92–94: it walks the short route and presses A onto the radial "to reveal
+  its effect", predicting `room_changed: false`. The room ends.
+
+It finished the room the way it finished every room — by trying the other
+thing. Nothing in memory says the rings are lethal, and nothing says two things
+traded places. `room7_radial` then becomes confirmed, "triggers relocation to a
+new room": a correct observation in the agent's own vocabulary.
+
+### Finding 5 — transfer, as a hypothesis it declined to be scored on
+
+`[measured]` Room 8 was solved without touching the rings. At (2,1), with the
+rings one press to the right and the radial directly above, it went up:
+"Pressing A from (2,1) will move onto the radial tile at (2,0), possibly
+triggering a room transition" — `room_changed: null`. `room8_radial` enters
+memory as a **hypothesis**. So the room-7 lesson did transfer to new geometry,
+and it transferred as a tentative generalisation the agent would not commit to.
+That is exactly the R1 limitation the README states: `recovered` measures
+revision plus willingness to be scored. This run shows the two coming apart.
+
+### What this does to the metrics
+
+`[derived]` Every post-change telling press, field by field, against both rule
+sets:
+
+```
+step 90  room 7  B    end_position STALE   returned_to_start STALE   room_changed RIGHT
+step 94  room 7  A    end_position RIGHT   returned_to_start RIGHT   room_changed STALE
+step 114 room 8  A    end_position RIGHT   returned_to_start RIGHT   room_changed declined
+```
+
+**R1 fired at step 90 on a press that was two-thirds stale.** `room_changed:
+false` was right under the new rules, but the agent predicted it because it
+expected to *stand* on the rings with the room continuing — it has never held
+"rings end the room" as a predictive belief (Finding 2).
+`firstRevisedPredictionStep` fires on *any* correctly called divergent field, so
+an uncommitted belief scored as a revised one, with a detection delay of zero.
+The hole is in the criterion, not the log, and the log can be rescored:
+
+| R1 definition | R1 at | recovered at |
+|---|---|---|
+| any divergent field correct *(pre-registered)* | 90 | 94 |
+| every committed divergent field correct | 114 | 114 |
+| every divergent field committed and correct | never | never |
+
+`[assumption]` The two alternatives are **post-hoc**, written after seeing the
+data, and are reported beside the pre-registered result rather than replacing
+it. The middle one is the right pre-registration for the next run: it cannot be
+satisfied by a press that was also wrong in exactly the way the dead rule was
+wrong. The strictest one punishes honesty and stays a report-only column.
+
+### Two defects in the instrument, found by the run
+
+`[measured]` **The summary cried wolf.** The console summary printed `SEAL
+BROKEN — this run is not valid evidence` because `toolUseAlarms` was non-zero,
+while the per-step logic had already classified the one item as non-leaky.
+Fixed: the summary now says SEAL BROKEN only for a leaky item and otherwise
+reports the count with "seal intact", and `summary.json` carries
+`seal_broken` explicitly.
+
+`[measured]` **Rooms 6 and 8 do not demonstrate the deflector.** Tracing the
+solver's reference solutions through the engine: room 5 carries the entity
+once; rooms 6 and 8 carry it **zero times**, under either rule set. In both,
+the diagonal is entered heading into a wall, so it deflects into solid and the
+entity simply stands on it. `requires: ['/']` is satisfied because the cell is on
+the only path — being required as a place to stand, which is precisely the
+defect E9 found in room 5's first draft and admitted having no test for. The
+README's claims that room 6 exercises "all three mechanics" and that room 8
+demands "the revised rule combined with the deflector rule" are false of the
+shipped geometry. This run could not have shown it either way, since the agent
+never learned the deflector (Finding 3), but the next one deserves rooms that
+mean what they say. The check is one line once the rooms are fixed: *the
+reference solution of any room that requires `/` must contain at least one
+press with `autoMoved > 0`*. Fixing the rooms changes their geometry, which
+makes this log unreplayable, which means archiving it under
+`runs/archive-engine-v4/` and bumping the engine version. Not done here; it is
+the user's call to invalidate the first v4 recording.
+
+### Standing after this run
+
+- **First v4 data exists**, n=1, one subject, one arm. Nothing here is a
+  comparison. The stable arm and the flat arm have still never been run.
+- The codex subject is a materially different subject from an API model
+  (≈11.7k scaffold tokens per call, no system/user split) and its results must
+  not be pooled with either without saying so.
+- R1 as pre-registered is too weak; the replacement is written down above,
+  before the next run.
+- The most replicable behavioural finding across three engine versions and two
+  models is still "preserve the root, add conditions" — and this run shows the
+  root can be the wrong belief entirely.
+
+### Next, in order
+
+1. **Pre-register strict R1** (every committed divergent field correct) and add
+   the blame ledger to `computeMetrics`. Both are arithmetic on fields the log
+   already records.
+2. **Fix rooms 6 and 8** so the deflector carries on the reference route, add
+   the `autoMoved` check, bump to engine v5, archive this log. Needs a decision.
+3. **Stable arm, same subject, same budget** — the control for rooms 7–8.
+4. **Flat arm** — the memory comparison, still never run on any engine.
+5. Only then repeats: at ≈1.6M tokens per codex run, an API subject is the
+   realistic route to n>1, with the pooling caveat stated.
+6. A→B→A return, and E7's echo effect, both still unreproduced on v4.

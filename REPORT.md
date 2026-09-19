@@ -204,13 +204,13 @@ no statuses to demote.
 ## 3. How the agent actually performed
 
 > **Everything in §3 and §3b happened on earlier versions of this instrument.**
-> No agent has been run under the v4 curriculum, prompt, prediction schema or
-> recovery criterion. These runs are kept because they are what motivated the
-> rebuild — each of the four defects fixed in v4 was found by watching a real
-> agent hit it — but none of their numbers can be rescored: a v3 step recorded a
-> single `predicted_position` where a v4 step records four separate claims, and
-> every current metric is computed from the latter. The recordings are in
-> `runs/archive-engine-v1/`, `-v2/` and `-v3/`.
+> They are kept because they are what motivated the rebuild — each of the four
+> defects fixed in v4 was found by watching a real agent hit it — but none of
+> their numbers can be rescored: a v3 step recorded a single
+> `predicted_position` where a v4 step records four separate claims, and every
+> current metric is computed from the latter. The recordings are in
+> `runs/archive-engine-v1/`, `-v2/` and `-v3/`. **The first run on the current
+> instrument is §3c.**
 
 Here's the part you probably want. Three runs, narrated.
 
@@ -384,6 +384,69 @@ the same shape every time: **keep the root claim, bolt conditions onto it.**
 That makes it the most replicable thing the project has found, and it points at
 the model rather than the world.
 
+## 3c. The first real run on this engine
+
+*(2026-09-19. Full detail in `RESEARCH_LOG.md` E17; the log is
+`runs/codex-v4-2026-09-19T1208.jsonl` and replays exactly.)*
+
+One subject — OpenAI's `codex` CLI driving `gpt-5.6-luna`, sealed so it could not
+read anything but the prompt — played all eight rooms from empty memory, hidden
+condition, 25 presses a room. 114 presses, zero malformed replies, zero tool
+uses. Halfway through, one call hung past the five-minute limit and the runner
+died; the run was resumed from the log, which the protocol makes exact (the
+subject never had any history to lose), and the resume is now a tested feature.
+
+**The scoreboard says it worked.** Seven of eight rooms. It reached the change on
+knowledge it had earned itself, walked the long route it had learned to prefer
+straight onto the rings — now lethal — and was sent back, exactly as room 7 is
+built to make happen. Four presses later it finished that room by the short
+route, and then finished room 8, new geometry, without ever touching the rings.
+By the criterion fixed before the run: **recovered at step 94, transferred at
+114.**
+
+**The transcript says something else, and it's the more interesting result.**
+
+It died ten times in the campaign, and after every single death its stated
+contradiction blamed a *button* — "Button A moved the entity from (2,3) to (2,4),
+contradicting the earlier assumption that A always moves upward" — never the
+tile it had just stepped on, even though the observation named that cell every
+time. Its button beliefs were correct throughout; it spent the run demoting them
+anyway. Nine of the twelve contradictions it ever filed against a button were
+deaths. The first belief about the lethal tile appears after the ninth death,
+and only for that one room.
+
+So when the swap came, there was no rule to revise. After the death on the rings
+it blamed button B again, kept "toward the concentric tile" as the confirmed
+plan, and finished the room by trying the only tile it hadn't tried — predicting
+the room would *not* end. Room 8 it solved by carrying that observation forward
+as a hypothesis, "possibly triggering a room transition", and declining to commit
+to it. Nothing in its final memory says the rings are lethal, or that two things
+traded places.
+
+Two other things the run showed:
+
+- **A solved room is not a learned rule.** Room 2 was solved optimally on a
+  press it predicted wrong. Across 114 presses it committed to a room ending
+  exactly once. It reaches exits; it doesn't predict them.
+- **Room 6 fell with a perfect model.** 25 correct predictions out of 25, no
+  deaths, and it never got near the rings — ten presses were spent stepping
+  left and right along the same corridor. Prediction accuracy cannot see a
+  planning failure.
+
+And two things it showed about the instrument. The recovery criterion fired on
+a press that was wrong in exactly the old rule's way on two of three fields and
+right on the third — the "any field" rule is too loose, and the stricter version
+is now written down for the next run. And rooms 6 and 8, traced through the
+solver, never actually carry the entity on the deflector; the diagonal is
+required only as a square to stand on, the same defect §4 describes catching in
+room 5. Fixing that changes the rooms and archives this log; it is queued, not
+done.
+
+What this is: one trajectory, one subject, one arm. What it is not: a
+comparison of anything with anything.
+
+---
+
 ## 4. Things that broke, including my own mistakes
 
 This is the honest part. Most of what I learned came from things being wrong.
@@ -512,7 +575,7 @@ the floor rules, because a floor rule is what the experiment actually changes.
 ## 6. What we can honestly claim right now
 
 **Can say:**
-- The world is built, deterministic, and verified. **66 automated checks**, plus
+- The world is built, deterministic, and verified. **77 automated checks**, plus
   typechecking on the app, the scripts and the server.
 - All eight rooms are proven solvable, proven *unsolvable* without the mechanics
   they claim to teach, and proven not to share a solution with each other.
@@ -527,50 +590,57 @@ the floor rules, because a floor rule is what the experiment actually changes.
 - The hidden arm is proven to receive no hint that anything can change.
 - A real agent, starting from nothing, discovers the controls, forms theories,
   labels its own uncertainty, corrects itself, and builds plans on top of
-  beliefs — **on the previous instrument.**
+  beliefs.
+- **One sealed agent has played the whole v4 campaign from empty memory**,
+  reached the change on its own knowledge, died on the stale rule, and finished
+  both rooms after it (§3c). The pipeline survives eight rooms end to end with
+  zero malformed replies, and a run can be resumed exactly after a provider
+  failure.
+- On that run, every death was attributed to a button rather than the surface,
+  and the recovery scored by the pre-registered criterion is not a revision the
+  memory contains. Both the pre-registered and a stricter scoring are reported.
 
 **Cannot say:**
-- **Anything at all about agent behaviour under v4.** Not one model call has been
-  made against the new curriculum, prompt, schema or metrics. Everything in §3
-  and §3b describes an instrument that has since been rebuilt in four places, at
-  least two of which were actively distorting what it measured.
 - **Nothing about which memory style is better.** Every model run so far used
   structured memory. There is no flat-memory run. There is no comparison.
-- Nothing statistical. One run per condition, on the old instrument.
-- No agent has yet reached the rule change using knowledge it learned itself —
-  the adaptation runs used memory I wrote, on a world that no longer exists.
+- Nothing about the change versus the rooms. The stable arm — the control — has
+  never been run.
+- Nothing statistical. n=1 on v4, and a codex subject is not an API subject.
+- Nothing about the deflector as a mechanic. The one v4 subject never learned
+  it, and rooms 6 and 8 turn out not to demonstrate it anyway.
 
 ---
 
 ## 7. What to do next, in order
 
-0. **Point it at a model and let it run.** `npm run campaign` does the whole
-   campaign headlessly in one command. Driving it by hand through one sealed
-   subagent per press — how every run so far was done — costs roughly twenty
-   times more than the work it does, because each press rebuilds an entire agent
-   harness to answer one question about one grid. Fine for a five-step probe,
-   hopeless for a campaign. A local model on an OpenAI-compatible endpoint costs
-   nothing and needs no key.
-1. **One full run through all eight rooms from empty memory**, reaching the
-   change through genuinely earned knowledge. Everything else is guessing until
-   this exists. Give it 25–30 presses per room, not 15 — this agent spends
-   heavily on hypothesis tests and the earlier budget made the failure about the
-   allowance rather than the reasoning.
-2. **The stable arm, same budget.** It is the control for the whole curriculum:
-   without it, a collapse in rooms 7–8 cannot be separated from those two rooms
-   simply being harder than the six before them.
-3. **The same run with flat memory.** Then, for the first time, there's a
+1. **Tighten the recovery criterion before the next run**: R1 = every
+   committed divergent field correct, so a press that is stale on two fields and
+   right on one cannot count. Add the blame ledger — for each button belief, the
+   share of its `contradicted_by` presses that were deaths — so misattribution
+   becomes a number rather than a paragraph. Both are arithmetic on fields the
+   log already has.
+2. **Fix rooms 6 and 8 so the deflector actually carries** on the reference
+   route, and add the check that it does. This changes their geometry, so the
+   first v4 log gets archived and the engine version bumps. A decision, not a
+   patch.
+3. **The stable arm, same subject, same budget.** It is the control for the
+   whole curriculum: without it, a collapse in rooms 7–8 cannot be separated
+   from those two rooms simply being harder than the six before them.
+4. **The same run with flat memory.** Then, for the first time, there's a
    comparison — and it is a sub-experiment, not the headline.
-4. **Repeat the prediction-echo result properly.** It's still the most
+5. **Repeats.** A codex run costs ~1.6M tokens; an API subject over OpenRouter
+   is the realistic route to n>1, with the pooling caveat stated every time.
+6. **Repeat the prediction-echo result properly.** It's still the most
    interesting finding and the least supported, and it has never been reproduced
    on the current engine.
-5. **Add a return to the old rule (A → B → A).** It's the cheapest way to tell
+7. **Add a return to the old rule (A → B → A).** It's the cheapest way to tell
    real revision apart from simply forgetting fast — a memory that only keeps
    recent things looks brilliant at adapting and hopeless at returning.
-6. **Then** make attribution ambiguous. Right now a single contradiction points
+8. **Then** make attribution ambiguous. Right now a single contradiction points
    at exactly one culprit, which may make careful revision and crude
    "retest whatever broke" the same thing. That's the biggest open threat to the
-   whole idea.
+   whole idea — though §3c suggests an unambiguous culprit does not stop an
+   agent blaming something else.
 
 ---
 

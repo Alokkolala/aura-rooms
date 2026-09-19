@@ -106,6 +106,21 @@ npm run campaign -- --strategy=structured --condition=hidden --budget=25
 Both routes go through the same `server/provider.ts`, so a watched run and a
 headless run reach the model through identical code.
 
+A run that stops on a provider error can be continued exactly — nothing carries
+between presses except the memory store and the last observation, and the log
+records both:
+
+```bash
+npm run campaign -- --resume=runs/<id>.jsonl --retries=2
+```
+
+Strategy, condition, budget, provider, model and system prompt are taken from or
+checked against the log, so the seam cannot splice two experiments; a
+`run_resume` record marks it. A test hydrates every prefix of every log in
+`runs/` and asserts the prompt it would send is byte-for-byte the one the next
+recorded step received. `AURA_TIMEOUT_MS` caps a single call (default 300 s),
+and a press is asked again after a provider error, every attempt logged.
+
 ### The three subjects are not equivalent
 
 | provider | how it is called | caveat |
@@ -131,9 +146,12 @@ SEALED`), not a comment:
 - `--ignore-rules`, `--ephemeral` — no execpolicy rules, and no session file, so
   one press cannot see the last. Every press is answered from the prompt and the
   memory store alone, exactly as on the API arms
-- `--json` — every reply counts tool calls. **A non-zero count is a finding, not
-  a detail**: the run is flagged `SEAL BROKEN` in the console, written to the log
-  as `seal_alarm`, shown in red in the UI, and counted in the summary
+- `--json` — every reply counts the items codex produced besides the message.
+  **A non-zero count is a finding, not a detail**: it is written to the log as
+  `seal_alarm` with the item types, shown in red in the UI, and counted in the
+  summary. A command, file, search or fetch item is `leaky` and the run is
+  flagged `SEAL BROKEN`; a planning or `error` item is recorded and reported as
+  "seal intact", because it cannot have read the world
 
 The prompt goes to codex over **stdin**, not as an argument. On Windows `codex`
 is a `.cmd` shim that Node will only launch with `shell: true`, and Node then
@@ -147,9 +165,9 @@ braces would be mangled. Set `AURA_CODEX_BIN` to the package's own
 npm run check
 ```
 
-Typechecks both projects and runs **75 checks**: 22 on the engine, curriculum and
-recorded logs, and 53 on the agent loop, the researcher/agent boundary, the
-metrics, and the provider layer. `scripts/` and `server/` are typechecked too — they were not, and a
+Typechecks both projects and runs **77 checks**: 22 on the engine, curriculum and
+recorded logs, and 55 on the agent loop, the researcher/agent boundary, the
+metrics, the provider layer, and resuming. `scripts/` and `server/` are typechecked too — they were not, and a
 function nested inside another one meant the hand-driven stepper silently never
 applied the rule change at all.
 
@@ -477,20 +495,29 @@ still in `runs/` replays exactly.
 
 ## Status — read this before believing any number
 
-**No automated LLM run has ever been executed in this repository, and none has
-been executed under the v4 curriculum, prompt, prediction schema or recovery
-criterion.** Every number this instrument can produce is currently hypothetical.
+**One automated run exists on this engine**, and it is n=1, one subject, one
+arm: `runs/codex-v4-2026-09-19T1208.jsonl` — `codex exec · gpt-5.6-luna`,
+structured memory, hidden condition, 25 presses per room, 114 presses, sealed
+throughout. It solved 7 of 8 rooms, died on the rings after the swap exactly as
+room 7 is built to make it, finished rooms 7 and 8, and is scored `recovered` at
+step 94 and `transferSucceeded` at 114 by the criterion above. Read
+`RESEARCH_LOG.md` E17 before repeating those two words: every one of its ten
+deaths was blamed on a button, the tile rule was never written down, and R1
+fired on a press that was two-thirds stale. The pre-registered criterion has a
+hole, the stricter replacement is written down there, and both scorings are
+reported.
 
-What has been run: all 66 checks, both typecheck projects, manual play, the
-random agent, and — under **earlier** engines — hand-stepped runs using a sealed
-subagent (Haiku 4.5, one cold spawn per action, `tool_uses: 0` verified on every
-spawn). Those runs are archived and cannot be rescored: they recorded a single
-`predicted_position` where a v4 step records four separate claims, and every
-metric here is computed from the latter.
+Nothing here is a comparison. The stable arm and the flat arm have never been
+run on any engine. The codex subject carries ~11,700 tokens of its own
+scaffolding per call and has no system/user split; do not pool it with an API
+model.
 
-The behavioural findings in `REPORT.md` and `RESEARCH_LOG.md` E5–E15 therefore
-describe **the previous instrument**. They are kept because they are what
-motivated this rebuild, and each is marked with the engine it came from.
+Earlier engines were exercised only by hand-stepped runs using a sealed subagent
+(Haiku 4.5, one cold spawn per action, `tool_uses: 0` verified on every spawn).
+Those runs are archived and cannot be rescored: they recorded a single
+`predicted_position` where a v4 step records four separate claims. The
+behavioural findings in `REPORT.md` and `RESEARCH_LOG.md` E5–E15 describe **the
+previous instrument** and are marked with the engine they came from.
 
 Three documents, by how much detail you want:
 - **`REPORT.md`** — plain-language account of what was built, how the agent
@@ -500,8 +527,20 @@ Three documents, by how much detail you want:
 
 ## Known limitations
 
-- **No v4 data exists.** Every claim about how an agent behaves in this
-  curriculum is a prediction about an experiment that has not been run.
+- **n=1.** One run, one subject, one arm. Every behavioural claim about v4 is
+  a description of a single trajectory.
+- **Rooms 6 and 8 do not demonstrate the deflector.** On both reference
+  solutions the diagonal is entered heading into a wall, so it never carries the
+  entity; `requires: ['/']` holds only because the cell is on the only path. The
+  claims in the curriculum table that room 6 exercises all three mechanics and
+  that room 8 combines the revised rule with the deflector rule are false of the
+  shipped geometry. Fixing them changes the rooms, which archives the one v4 log.
+  See E17.
+- **R1 as pre-registered can fire on a partially stale press.** It accepts any
+  one correctly called divergent field; E17 shows a press that was wrong in
+  exactly the dead rule's way on two fields and right on the third, and it
+  scored as revised. The next run pre-registers "every committed divergent field
+  correct".
 - The world is deterministic and fully observable, so a single contradiction is
   conclusive and the culprit is unambiguous. This is the biggest threat to the
   study: it may make selective revision and "just retest what broke" the same

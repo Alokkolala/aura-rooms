@@ -1,0 +1,180 @@
+provider       codex exec · gpt-5.6-luna
+(node:27804) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  r1 s  1 A   ·  1,4 -> 1,3
+  r1 s  2 B   ·  1,3 -> 2,3
+  r1 s  3 C HIT  2,3 -> 2,4
+  r1 s  4 B HIT  2,4 -> 3,4
+  r1 s  5 A HIT  3,4 -> 3,3
+  r1 s  6 A HIT  3,3 -> 3,2  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r2 s  7 A HIT  5,3 -> 5,2
+  r2 s  8 A HIT  5,2 -> 5,1
+  r2 s  9 D HIT  5,1 -> 4,1
+  r2 s 10 D MISS 4,1 -> 3,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r3 s 11 A HIT  2,4 -> 2,3
+        flags: Step 11 changed rooms and left the entity at room 3 position (2,4), contradicting the predicted endpoint (3,1) and no-room-change expectation.
+  r3 s 12 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 13 D HIT  2,4 -> 1,4
+        flags: Button A moved the entity from (2,3) to (2,4), contradicting the earlier assumption that A always moves upward.
+  r3 s 14 A HIT  1,4 -> 1,3
+        flags: Button D confirmed leftward movement in room 3; the prior prediction concerned Button A, so no new contradiction is established.
+  r3 s 15 A HIT  1,3 -> 1,2
+  r3 s 16 B MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 17 A HIT  2,4 -> 2,3
+        flags: Button B did not move from (1,2) to (2,2); it relocated the entity to (2,4) in the same room.
+  r3 s 18 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 19 D HIT  2,4 -> 1,4
+        flags: Button A moved the entity from (2,3) to (2,4), contradicting the assumption that A always moves upward in room 3.
+  r3 s 20 A HIT  1,4 -> 1,3
+  r3 s 21 A HIT  1,3 -> 1,2
+  r3 s 22 B MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 23 A HIT  2,4 -> 2,3
+        flags: Button B relocated the entity from (1,2) to (2,4) instead of moving it to (2,2).
+  r3 s 24 A MISS SENT BACK from 2,2   [tells: end_position,returned_to_start,room_changed]
+  r3 s 25 D HIT  2,4 -> 1,4
+        flags: Button A moved the entity from (2,3) to (2,4), contrary to the expected upward movement.
+  r3 s 26 A HIT  1,4 -> 1,3
+  r3 s 27 A HIT  1,3 -> 1,2
+  r3 s 28 A HIT  1,2 -> 1,1
+  r3 s 29 B HIT  1,1 -> 2,1
+  r3 s 30 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r4 s 31 A MISS blocked
+  r4 s 32 B HIT  3,4 -> 4,4
+        flags: Button A did not move the entity upward from (3,4), contradicting the assumption that upward movement was available there.
+  r4 s 33 B HIT  4,4 -> 5,4
+  r4 s 34 A HIT  5,4 -> 5,3
+  r4 s 35 A HIT  5,3 -> 5,2
+  r4 s 36 A HIT  5,2 -> 5,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r5 s 37 D HIT  5,4 -> 4,4
+  r5 s 38 A MISS SENT BACK from 4,3   [tells: end_position,returned_to_start,room_changed]
+  r5 s 39 D HIT  5,4 -> 4,4
+        flags: The previous A press moved from (4,4) to (5,4), not to the predicted (4,3).
+  r5 s 40 A MISS SENT BACK from 4,3   [tells: end_position,returned_to_start,room_changed]
+  r5 s 41 D HIT  5,4 -> 4,4
+        flags: Button A did not move the entity to (4,3); it ended at (5,4) instead.
+  r5 s 42 A MISS SENT BACK from 4,3   [tells: end_position,returned_to_start,room_changed]
+  r5 s 43 D HIT  5,4 -> 4,4
+        flags: At step 43, Button A did not move from (4,4) to (4,3); it relocated the entity to (5,4).
+  r5 s 44 A MISS SENT BACK from 4,3   [tells: end_position,returned_to_start,room_changed]
+  r5 s 45 D HIT  5,4 -> 4,4
+        flags: The entity did not move to (4,3); button A from (4,4) relocated it to the room start at (5,4).
+  r5 s 46 D HIT  4,4 -> 3,4
+  r5 s 47 D HIT  3,4 -> 2,4
+  r5 s 48 D HIT  2,4 -> 1,4
+  r5 s 49 A HIT  1,4 -> 1,3
+
+provider error at step 50: codex exec timed out after 300000ms
+
+============================================================
+rooms solved   4/8
+presses        49   deaths 9 (0 after the change)
+accuracy       88%  (165/187 fields, 2 presses committed nothing)
+hazard touched r3:5(5 fatal) r5:4(4 fatal)
+invalid        0
+provider       codex exec · gpt-5.6-luna
+model calls    49  (679266 tokens)
+log            C:\p2\autoaura\runs\codex-v4-2026-09-19T1208.jsonl
+
+=== resumed 17:51:36 ===
+provider       codex exec · gpt-5.6-luna
+resuming       codex-v4-2026-09-19T1208 after step 49 (room 5, 13/25 presses used)
+(node:11412) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+  !! step 50: subject made 1 non-message item(s): error
+  r5 s 50 A HIT  1,3 -> 1,2
+  r5 s 51 A MISS 1,2 -> 2,1
+  r5 s 52 B HIT  2,1 -> 3,1
+        flags: The entity landed at (2,1), not the predicted (1,1), after button A.
+  r5 s 53 B HIT  3,1 -> 4,1  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r6 s 54 D HIT  8,4 -> 7,4
+  r6 s 55 D HIT  7,4 -> 6,4
+  r6 s 56 A HIT  6,4 -> 6,3
+  r6 s 57 A HIT  6,3 -> 6,2
+  r6 s 58 A HIT  6,2 -> 6,1
+  r6 s 59 A HIT  6,1 -> 6,0
+  r6 s 60 D HIT  6,0 -> 5,0
+  r6 s 61 D HIT  5,0 -> 4,0
+  r6 s 62 D HIT  4,0 -> 3,0
+  r6 s 63 B HIT  3,0 -> 4,0
+  r6 s 64 D HIT  4,0 -> 3,0
+  r6 s 65 B HIT  3,0 -> 4,0
+  r6 s 66 B HIT  4,0 -> 5,0
+  r6 s 67 D HIT  5,0 -> 4,0
+        flags: The latest outcome confirmed the predicted move from (4,0) to (5,0), so no prior belief was contradicted.
+  r6 s 68 B HIT  4,0 -> 5,0
+  r6 s 69 D HIT  5,0 -> 4,0
+  r6 s 70 B HIT  4,0 -> 5,0
+  r6 s 71 B HIT  5,0 -> 6,0
+  r6 s 72 C HIT  6,0 -> 6,1
+  r6 s 73 B HIT  6,1 -> 7,1
+  r6 s 74 C HIT  7,1 -> 7,2
+  r6 s 75 A HIT  7,2 -> 7,1
+  r6 s 76 C HIT  7,1 -> 7,2
+  r6 s 77 C HIT  7,2 -> 7,3
+  r6 s 78 C MISS 7,3 -> 7,4
+  room 6 FAILED (budget)
+
+  *** RULE CHANGED on entering room 7 ***
+
+  r7 s 79 D HIT  4,4 -> 3,4
+  r7 s 80 D HIT  3,4 -> 2,4
+  r7 s 81 D HIT  2,4 -> 1,4
+  r7 s 82 A HIT  1,4 -> 1,3
+  r7 s 83 A HIT  1,3 -> 1,2
+  r7 s 84 B MISS blocked
+  r7 s 85 A HIT  1,2 -> 1,1
+        flags: Button B did not move from (1,2), so its rightward movement requires an open destination.
+  r7 s 86 B HIT  1,1 -> 2,1
+  r7 s 87 B HIT  2,1 -> 3,1
+  r7 s 88 B HIT  3,1 -> 4,1
+  r7 s 89 B HIT  4,1 -> 5,1
+  r7 s 90 B MISS SENT BACK from 6,1   [tells: end_position,returned_to_start,room_changed]
+  r7 s 91 B HIT  4,4 -> 5,4
+        flags: Button B from (5,1) reset the entity to the room start (4,4), rather than moving to (6,1).
+  r7 s 92 B HIT  5,4 -> 6,4
+  r7 s 93 B HIT  6,4 -> 7,4
+  r7 s 94 A MISS 7,4 -> 7,3  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+  r8 s 95 D HIT  7,5 -> 6,5
+        flags: The room 7 radial tile caused relocation to room 8 instead of leaving the entity in place.
+  r8 s 96 D HIT  6,5 -> 5,5
+  r8 s 97 D HIT  5,5 -> 4,5
+  r8 s 98 D HIT  4,5 -> 3,5
+  r8 s 99 D HIT  3,5 -> 2,5
+  r8 s100 D HIT  2,5 -> 1,5
+  r8 s101 D HIT  1,5 -> 0,5
+  r8 s102 B HIT  0,5 -> 1,5
+  r8 s103 A HIT  1,5 -> 1,4
+  r8 s104 A HIT  1,4 -> 1,3
+  r8 s105 B HIT  1,3 -> 2,3
+        flags: The prior upward move reached (1,3) as predicted, but the route does not continue upward from there.
+  r8 s106 B MISS blocked
+  r8 s107 C HIT  2,3 -> 2,4
+  r8 s108 D HIT  2,4 -> 1,4
+  r8 s109 A HIT  1,4 -> 1,3
+  r8 s110 B HIT  1,3 -> 2,3
+  r8 s111 A HIT  2,3 -> 2,2
+  r8 s112 B MISS blocked
+  r8 s113 A HIT  2,2 -> 2,1
+        flags: Button B produced no movement from (2,2), confirming the rightward destination is blocked.
+  r8 s114 A HIT  2,1 -> 2,0  ** ROOM SOLVED **   [tells: end_position,returned_to_start,room_changed]
+
+============================================================
+rooms solved   7/8
+presses        114   deaths 10 (1 after the change)
+accuracy       93%  (412/445 fields, 2 presses committed nothing)
+hazard touched r3:5(5 fatal) r5:4(4 fatal) r7:1(1 fatal)
+change at      step 79
+first evidence 90
+R1 revised     90   (delay after evidence: 0)
+R2 room after  94
+RECOVERED      step 94
+transfer       step 114
+stale rule     3 predictions, 1 actions (1 fatal)
+violations     3 on altered fields, 18 presses overall
+collateral     3pp accuracy drop on fields the change did not touch
+invalid        0
+SEAL BROKEN    1 step(s) used tools - this run is not valid evidence
+resumed after  step 49
+provider       codex exec · gpt-5.6-luna
+model calls    114  (1611175 tokens)
+log            C:\p2\autoaura\runs\codex-v4-2026-09-19T1208.jsonl
